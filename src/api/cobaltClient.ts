@@ -1,4 +1,3 @@
-import CryptoJS from 'crypto-js';
 import { detectPlatform } from '../services/platformDetector';
 import { ResolveResult } from '../navigation/types';
 
@@ -35,11 +34,7 @@ export let useDemoMode = false;
 let lastDetectedRestrictedTitle: string | null = null;
 
 export const PUBLIC_COBALT_SERVERS = [
-  'https://cobalt-api.kwiatekm.tokyo',
   'https://api.cobalt.tools',
-  'https://co.wuk.sh',
-  'https://cobalt.api.scipnet.me',
-  'https://cobalt-api.hyper.lol',
 ];
 
 export function setCobaltServerUrl(url: string) {
@@ -73,15 +68,9 @@ export async function resolveCobaltMedia(
     return mockResolveMedia(url);
   }
 
-  // 1. Direct in-app extractor for YouTube (Videos, Shorts)
-  if (platformInfo.platform === 'youtube') {
-    const directYT = await resolveYouTubeDirect(url, options);
-    if (directYT) return directYT;
-    if (lastDetectedRestrictedTitle) {
-      throw new Error(
-        `"${lastDetectedRestrictedTitle}" is restricted by the broadcaster/rights holder (e.g. beIN SPORTS / UEFA) and cannot be downloaded.`
-      );
-    }
+  // 1. Explicitly block YouTube per policy
+  if (platformInfo.platform === 'youtube' || /(?:youtube\.com|youtu\.be)/i.test(url)) {
+    throw new Error('YouTube downloads are not supported.');
   }
 
   // 2. Direct in-app extractor for Twitter/X
@@ -146,7 +135,7 @@ export async function resolveCobaltMedia(
   }
 
   throw new Error(
-    `Unable to download media from this ${platformInfo.displayName} link. The video may be private, age-restricted, or protected by the content owner.`
+    `Unable to download media from this link. The video may be private, age-restricted, or protected by the content owner.`
   );
 }
 
@@ -165,7 +154,7 @@ async function fetchFromCobalt(
   };
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5s fast timeout
+  const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s fast timeout
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -199,8 +188,8 @@ async function fetchFromCobalt(
     platform: platformInfo.platform,
     originalUrl: url,
     picker: data.picker,
-    availableQualities: ['1080p Full HD', '720p HD', '480p SD', 'Audio (MP3)'],
-    audioOnlyAvailable: true,
+    availableQualities: ['1080p Full HD', '720p HD', '480p SD'],
+    audioOnlyAvailable: false,
   };
 }
 
@@ -230,13 +219,13 @@ async function resolveTwitterDirect(url: string): Promise<ResolveResult | null> 
           return {
             status: 'redirect',
             url: video.url,
-            filename: `x_${statusId}.mp4`,
-            title: tweet.text ? tweet.text.substring(0, 90) : `Post by @${user}`,
+            filename: `media_${statusId}.mp4`,
+            title: tweet.text ? tweet.text.substring(0, 90) : 'Video File',
             thumbnail: video.thumbnail_url || tweet.media?.photos?.[0]?.url,
             platform: 'twitter',
             originalUrl: url,
-            availableQualities: ['Original Quality (High Res)', 'Audio Only (MP3)'],
-            audioOnlyAvailable: true,
+            availableQualities: ['Original Quality (High Res)'],
+            audioOnlyAvailable: false,
           };
         }
       }
@@ -266,8 +255,8 @@ async function resolveTwitterDirect(url: string): Promise<ResolveResult | null> 
           thumbnail: media.thumbnail_url,
           platform: 'twitter',
           originalUrl: url,
-          availableQualities: ['Original Quality (High Res)', 'Audio Only (MP3)'],
-          audioOnlyAvailable: true,
+          availableQualities: ['Original Quality (High Res)'],
+          audioOnlyAvailable: false,
         };
       }
     }
@@ -295,14 +284,14 @@ async function resolveTikTokDirect(url: string): Promise<ResolveResult | null> {
       return {
         status: 'redirect',
         url: json.data.play || json.data.wmplay,
-        filename: `tiktok_${json.data.id || Date.now()}.mp4`,
-        title: json.data.title || 'TikTok Video',
+        filename: `media_${json.data.id || Date.now()}.mp4`,
+        title: json.data.title || 'Video File',
         thumbnail: json.data.cover,
         duration: json.data.duration,
         platform: 'tiktok',
         originalUrl: url,
-        availableQualities: ['HD No Watermark', 'With Watermark', 'Audio (MP3)'],
-        audioOnlyAvailable: true,
+        availableQualities: ['HD No Watermark', 'With Watermark'],
+        audioOnlyAvailable: false,
       };
     }
   } catch {
@@ -354,12 +343,12 @@ async function resolveRedditDirect(url: string): Promise<ResolveResult | null> {
           return {
             status: 'redirect',
             url: packagedMatch[0].replace(/&amp;/g, '&'),
-            filename: `reddit_${Date.now()}.mp4`,
-            title: ogTitle?.[1] || 'Reddit Video',
+            filename: `media_${Date.now()}.mp4`,
+            title: ogTitle?.[1] || 'Video File',
             thumbnail: ogImage?.[1],
             platform: 'reddit',
             originalUrl: url,
-            availableQualities: ['Original HD (Audio Included)'],
+            availableQualities: ['Original HD Video'],
             audioOnlyAvailable: false,
           };
         }
@@ -369,8 +358,8 @@ async function resolveRedditDirect(url: string): Promise<ResolveResult | null> {
           return {
             status: 'redirect',
             url: ogVideo[1].replace(/&amp;/g, '&'),
-            filename: `reddit_${Date.now()}.mp4`,
-            title: ogTitle?.[1] || 'Reddit Video',
+            filename: `media_${Date.now()}.mp4`,
+            title: ogTitle?.[1] || 'Video File',
             thumbnail: ogImage?.[1],
             platform: 'reddit',
             originalUrl: url,
@@ -413,12 +402,12 @@ async function resolveRedditDirect(url: string): Promise<ResolveResult | null> {
           return {
             status: 'redirect',
             url: bestUrl,
-            filename: rsData.file_name || `reddit_${Date.now()}.mp4`,
-            title: rsData.title || 'Reddit Video',
+            filename: `media_${Date.now()}.mp4`,
+            title: rsData.title || 'Video File',
             thumbnail: rsData.thumbnail,
             platform: 'reddit',
             originalUrl: url,
-            availableQualities: ['HD (Audio Included)'],
+            availableQualities: ['HD Video'],
             audioOnlyAvailable: false,
           };
         }
@@ -453,8 +442,8 @@ async function resolveRedditDirect(url: string): Promise<ResolveResult | null> {
             return {
               status: 'redirect',
               url: best.url,
-              filename: `reddit_${Date.now()}.mp4`,
-              title: sfData?.meta?.title || 'Reddit Video',
+              filename: `media_${Date.now()}.mp4`,
+              title: sfData?.meta?.title || 'Video File',
               thumbnail: sfData?.thumb,
               platform: 'reddit',
               originalUrl: url,
@@ -509,7 +498,7 @@ async function resolveRedditDirect(url: string): Promise<ResolveResult | null> {
               return {
                 status: 'redirect',
                 url: videoStreamUrl,
-                filename: `reddit_${post.id || Date.now()}.mp4`,
+                filename: `media_${post.id || Date.now()}.mp4`,
                 title,
                 thumbnail,
                 duration: video?.duration,
@@ -590,8 +579,8 @@ async function resolveSnapchatDirect(url: string): Promise<ResolveResult | null>
         return {
           status: 'redirect',
           url: ogVideoMatch[1].replace(/&amp;/g, '&'),
-          filename: `snapchat_${Date.now()}.mp4`,
-          title: ogTitleMatch?.[1] || 'Snapchat Spotlight',
+          filename: `media_${Date.now()}.mp4`,
+          title: ogTitleMatch?.[1] || 'Video File',
           thumbnail: ogImageMatch?.[1],
           platform: 'snapchat',
           originalUrl: url,
@@ -682,8 +671,8 @@ async function resolvePinterestDirect(url: string): Promise<ResolveResult | null
               return {
                 status: 'redirect',
                 url: videoStream,
-                filename: `pinterest_${pinId}.mp4`,
-                title,
+                filename: `media_${pinId}.mp4`,
+                title: title || 'Media File',
                 thumbnail: thumb,
                 platform: 'pinterest',
                 originalUrl: url,
@@ -698,8 +687,8 @@ async function resolvePinterestDirect(url: string): Promise<ResolveResult | null
               return {
                 status: 'redirect',
                 url: origImg,
-                filename: `pinterest_${pinId}.jpg`,
-                title,
+                filename: `media_${pinId}.jpg`,
+                title: title || 'Media File',
                 thumbnail: origImg,
                 platform: 'pinterest',
                 originalUrl: url,
@@ -741,8 +730,8 @@ async function resolvePinterestDirect(url: string): Promise<ResolveResult | null
             return {
               status: 'redirect',
               url: chosen.url,
-              filename: `pinterest_${Date.now()}.${isVid ? 'mp4' : 'jpg'}`,
-              title: sfData?.meta?.title || 'Pinterest Pin',
+              filename: `media_${Date.now()}.${isVid ? 'mp4' : 'jpg'}`,
+              title: sfData?.meta?.title || 'Media File',
               thumbnail: sfData?.thumb,
               platform: 'pinterest',
               originalUrl: url,
@@ -804,8 +793,8 @@ async function resolvePinterestDirect(url: string): Promise<ResolveResult | null
           return {
             status: 'redirect',
             url: mediaUrl,
-            filename: `pinterest_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-            title: ogTitle?.[1] || 'Pinterest Media',
+            filename: `media_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+            title: ogTitle?.[1] || 'Media File',
             thumbnail: ogImage?.[1],
             platform: 'pinterest',
             originalUrl: url,
@@ -1203,7 +1192,7 @@ async function resolveFacebookDirect(
     }
 
     // Step 5: Extract Clean Title
-    let pageTitle = 'Facebook Video';
+    let pageTitle = 'Video File';
     const ogTitleMatch =
       pageHtml.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
       pageHtml.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i) ||
@@ -1261,18 +1250,17 @@ async function resolveFacebookDirect(
     const availableQualities: string[] = [];
     if (streams.hdUrl) availableQualities.push('HD (High Quality)');
     if (streams.sdUrl) availableQualities.push('SD (Standard Quality)');
-    availableQualities.push('Audio Only (MP3)');
 
     return {
       status: 'redirect',
       url: chosenUrl,
-      filename: `facebook_${videoId || Date.now()}.mp4`,
+      filename: `media_${videoId || Date.now()}.mp4`,
       title: pageTitle,
       thumbnail,
       platform: 'facebook',
       originalUrl: url,
       availableQualities,
-      audioOnlyAvailable: true,
+      audioOnlyAvailable: false,
     };
   } catch (err) {
     console.log('resolveFacebookDirect error:', err);
@@ -1304,11 +1292,13 @@ async function resolveInstagramDirect(url: string): Promise<ResolveResult | null
       cleanUrl = u.toString().replace(/\/$/, '');
     } catch {}
 
-    // Extract shortcode from /p/, /reel/, /tv/, /stories/account/
-    const scMatch = cleanUrl.match(/instagram\.com\/(?:p|reel|tv|stories\/[^/]+)\/([A-Za-z0-9_-]+)/i);
+    // Extract shortcode from /p/, /reel/, /tv/, /stories/account/, /share/reel/
+    const scMatch =
+      cleanUrl.match(/(?:instagram\.com|instagr\.am)\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv|stories\/[^/]+|share\/(?:reel|p))\/([A-Za-z0-9_-]+)/i) ||
+      cleanUrl.match(/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/i);
     const shortcode = scMatch ? scMatch[1] : null;
 
-    let title = 'Instagram Video';
+    let title = 'Video File';
     let thumbnail: string | undefined;
 
     // Helper: build a result object
@@ -1317,7 +1307,7 @@ async function resolveInstagramDirect(url: string): Promise<ResolveResult | null
       return {
         status: 'redirect',
         url: videoUrl,
-        filename: `instagram_${shortcode || Date.now()}.mp4`,
+        filename: `media_${shortcode || Date.now()}.mp4`,
         title,
         thumbnail,
         platform: 'instagram',
@@ -1335,506 +1325,89 @@ async function resolveInstagramDirect(url: string): Promise<ResolveResult | null
         .replace(/&amp;/gi, '&')
         .replace(/\\/g, '');
 
-    // ─── Strategy 1: OpenGraph Bot Crawler (FacebookExternalHit / Googlebot) ────────
-    // Instagram serves pre-rendered OpenGraph metadata (og:video) directly to recognized bots
-    if (shortcode) {
-      const botAgents = [
-        'TelegramBot (like TwitterBot)',
-        'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
-        'Twitterbot/1.0',
-        'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-      ];
+    if (!shortcode) return null;
 
-      for (const botAgent of botAgents) {
-        try {
-          const ctrl = new AbortController();
-          const timeout = setTimeout(() => ctrl.abort(), 6000);
-          const botRes = await fetch(`https://www.instagram.com/reel/${shortcode}/`, {
-            headers: {
-              'User-Agent': botAgent,
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-              'Accept-Language': 'en-US,en;q=0.9',
-            },
-            signal: ctrl.signal,
-          });
-          clearTimeout(timeout);
-
-          if (botRes.ok) {
-            const html = await botRes.text();
-            const ogVideoMatch =
-              html.match(/<meta[^>]+property=["']og:video(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i) ||
-              html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video(?::secure_url)?["']/i);
-            const ogTitleMatch =
-              html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
-              html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
-            const ogImageMatch =
-              html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
-              html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-
-            if (ogTitleMatch?.[1]) title = decodeIg(ogTitleMatch[1]);
-            if (ogImageMatch?.[1]) thumbnail = decodeIg(ogImageMatch[1]);
-
-            if (ogVideoMatch?.[1]) {
-              const stream = decodeIg(ogVideoMatch[1]);
-              if (stream.includes('.mp4') || stream.includes('fbcdn.net') || stream.includes('cdninstagram.com')) {
-                return buildResult(stream, 'og:video bot crawler');
-              }
-            }
-
-            // Direct mp4 URL scan in crawler HTML
-            const mp4Match = html.match(/https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*/i);
-            if (mp4Match) {
-              return buildResult(decodeIg(mp4Match[0]), 'bot crawler mp4 scan');
-            }
-          }
-        } catch {}
-      }
-    }
-
-    // ─── Strategy 2: Instagram Polaris GraphQL API (DocID + LSD Token) ─────────────
-    if (shortcode) {
+    // Fast concurrent checks with tight 2.2s timeout
+    const strategyEmbed = async (): Promise<ResolveResult | null> => {
       try {
-        const polarisCtrl = new AbortController();
-        const polarisTimeout = setTimeout(() => polarisCtrl.abort(), 7000);
-
-        const bodyParams = new URLSearchParams({
-          lsd: 'AVqbxe3J_YA',
-          jazoest: '2957',
-          fb_api_caller_class: 'RelayModern',
-          fb_api_req_friendly_name: 'PolarisPostActionLoadPostQueryQuery',
-          variables: JSON.stringify({ shortcode }),
-          doc_id: '10015901848480474',
-        }).toString();
-
-        const polarisRes = await fetch('https://www.instagram.com/api/graphql', {
-          method: 'POST',
-          headers: {
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-FB-Friendly-Name': 'PolarisPostActionLoadPostQueryQuery',
-            'X-CSRFToken': 'RVDUooU5MYsBbS1CNN3CzVAuEP8oHB52',
-            'X-IG-App-ID': '1217981644879628',
-            'X-FB-LSD': 'AVqbxe3J_YA',
-            'X-ASBD-ID': '129477',
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          },
-          body: bodyParams,
-          signal: polarisCtrl.signal,
-        });
-        clearTimeout(polarisTimeout);
-
-        if (polarisRes.ok) {
-          const gqlData = await polarisRes.json();
-          const media = gqlData?.data?.xdt_shortcode_media;
-          if (media) {
-            title = media.edge_media_to_caption?.edges?.[0]?.node?.text?.substring(0, 100) || title;
-            thumbnail = media.display_url || thumbnail;
-            if (media.video_url) return buildResult(media.video_url, 'polaris graphql');
-            const edges: any[] = media.edge_sidecar_to_children?.edges || [];
-            for (const e of edges) {
-              if (e?.node?.video_url) return buildResult(e.node.video_url, 'polaris sidecar');
-            }
-          }
-        }
-      } catch {}
-    }
-
-    // ─── Strategy 3: SaveFrom Instagram Service ────────────────────────────────────
-    try {
-      const sfCtrl = new AbortController();
-      const sfTimeout = setTimeout(() => sfCtrl.abort(), 8000);
-      const sfRes = await fetch(
-        `https://worker.sf-tools.com/savefrom.php?sf_url=${encodeURIComponent(cleanUrl)}`,
-        {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept': 'application/json',
-            'Referer': 'https://en.savefrom.net/',
-          },
-          signal: sfCtrl.signal,
-        }
-      );
-      clearTimeout(sfTimeout);
-
-      if (sfRes.ok) {
-        const sfData = await sfRes.json();
-        const urls = sfData?.url || [];
-        if (Array.isArray(urls) && urls.length > 0) {
-          const best = urls.find((u: any) => u.url && (u.ext === 'mp4' || u.type === 'video')) || urls[0];
-          if (best?.url) {
-            if (sfData?.meta?.title) title = sfData.meta.title;
-            return buildResult(best.url, 'savefrom gateway');
-          }
-        }
-      }
-    } catch {}
-
-    // ─── Strategy 4: BTCH Instagram Bridge API (Multiple mirrors) ───────────────────
-    const btchHosts = [
-      'https://backend1.tioo.eu.org',
-      'https://backend2.tioo.eu.org',
-    ];
-
-    for (const host of btchHosts) {
-      try {
-        const btchCtrl = new AbortController();
-        const btchTimeout = setTimeout(() => btchCtrl.abort(), 8000);
-        const btchRes = await fetch(
-          `${host}/igdl?url=${encodeURIComponent(cleanUrl)}`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'btch/6.3.6',
-              'X-Client-Version': '6.3.6',
-            },
-            signal: btchCtrl.signal,
-          }
-        );
-        clearTimeout(btchTimeout);
-        if (btchRes.ok) {
-          const btchData = await btchRes.json();
-          const results = Array.isArray(btchData)
-            ? btchData
-            : Array.isArray(btchData?.result)
-            ? btchData.result
-            : Array.isArray(btchData?.data)
-            ? btchData.data
-            : [];
-          if (results.length > 0) {
-            const first =
-              results.find((r: any) => r.url && (r.url.includes('.mp4') || r.url.includes('rapidcdn') || !r.url.includes('.jpg'))) ||
-              results[0];
-            if (first?.url) {
-              if (first.thumbnail) thumbnail = first.thumbnail;
-              return buildResult(first.url, `btch bridge (${host})`);
-            }
-          }
-        }
-      } catch {}
-    }
-
-    // ─── Strategy 5: Snapsave API with JS Unpacker ─────────────────────────────────
-    try {
-      const snapCtrl = new AbortController();
-      const snapTimeout = setTimeout(() => snapCtrl.abort(), 8000);
-      const snapRes = await fetch('https://snapsave.app/action.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'X-Requested-With': 'XMLHttpRequest',
-          Origin: 'https://snapsave.app',
-          Referer: 'https://snapsave.app/',
-        },
-        body: `url=${encodeURIComponent(cleanUrl)}`,
-        signal: snapCtrl.signal,
-      });
-      clearTimeout(snapTimeout);
-      if (snapRes.ok) {
-        const rawJs = await snapRes.text();
-        const unpacked = unpackSnapsave(rawJs);
-        if (unpacked) {
-          const match =
-            unpacked.match(/href=["'](https?:\/\/[^"'\s]+\.mp4[^"'\s]*)["']/i) ||
-            unpacked.match(/href=["'](https?:\/\/[^"'\s]*snapxcdn\.com\/[^"'\s]*)["']/i) ||
-            unpacked.match(/href=["'](https?:\/\/[^"'\s]*snapsave\.app\/download\.php\?[^"'\s]*)["']/i) ||
-            unpacked.match(/<a[^>]+href=["'](https?:\/\/[^"'\s]+)["'][^>]*class=["'][^"']*download-media/i);
-          if (match && match[1]) {
-            return buildResult(match[1], 'snapsave unpacker');
-          }
-        }
-      }
-    } catch {}
-
-    // ─── Strategy 6: Instagram Embed Page Scraping ─────────────────────────────────
-    if (shortcode) {
-      try {
-        const embedController = new AbortController();
-        const embedTimeout = setTimeout(() => embedController.abort(), 8000);
-        const embedRes = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 2200);
+        const res = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
           headers: {
             'User-Agent':
               'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 320.0.0.18.108',
-            'Accept': 'text/html,application/xhtml+xml,*/*',
+            Accept: 'text/html,application/xhtml+xml,*/*',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': 'https://www.instagram.com/',
           },
-          signal: embedController.signal,
+          signal: ctrl.signal,
         });
-        clearTimeout(embedTimeout);
+        clearTimeout(timeout);
 
-        if (embedRes.ok) {
-          const embedHtml = await embedRes.text();
-
+        if (res.ok) {
+          const html = await res.text();
           const cdnPattern =
             /https?:\/\/[\w.-]*(?:cdninstagram\.com|fbcdn\.net)\/[^"'\s<>]+\.mp4[^"'\s<>]*/gi;
-          const cdnMatches = embedHtml.match(cdnPattern);
+          const cdnMatches = html.match(cdnPattern);
           if (cdnMatches && cdnMatches.length > 0) {
             const best =
               cdnMatches.find((u) => !u.includes('/t51.') && !u.includes('/s320x320/')) ||
               cdnMatches[0];
-            return buildResult(decodeIg(best), 'embed captioned scan');
-          }
-
-          const jsonBlobMatch = embedHtml.match(/window\.__additionalData\s*=\s*(\{.+?\});\s*<\/script>/s);
-          if (jsonBlobMatch) {
-            try {
-              const blob = JSON.parse(jsonBlobMatch[1]);
-              const mediaNode =
-                blob?.['extra']?.gql_data?.shortcode_media ||
-                (Object.values(blob)[0] as any)?.gql_data?.shortcode_media;
-              if (mediaNode?.video_url) {
-                title = mediaNode?.edge_media_to_caption?.edges?.[0]?.node?.text || title;
-                thumbnail = mediaNode?.display_url || thumbnail;
-                return buildResult(mediaNode.video_url, 'embed additionalData');
-              }
-            } catch {}
+            return buildResult(decodeIg(best), 'fast embed scan');
           }
         }
       } catch {}
-    }
+      return null;
+    };
 
-    return null;
-  } catch (err) {
-    console.log('[Instagram] resolve error:', err);
-    return null;
-  }
-}
-
-// Direct In-App Extractor for YouTube (Videos, Shorts, Audio)
-async function resolveYouTubeDirect(
-  url: string,
-  options: Partial<CobaltRequestOptions> = {}
-): Promise<ResolveResult | null> {
-  try {
-    let videoId: string | null = null;
-    const matchWatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-    if (matchWatch) {
-      videoId = matchWatch[1];
-    } else {
-      const matchShort = url.match(/(?:youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/);
-      if (matchShort) {
-        videoId = matchShort[1];
-      }
-    }
-
-    if (!videoId) return null;
-
-    // 1. Concurrent In-App Extractor: Race SaveTube and Piped for instant sub-second resolution
-    // 1. Primary In-App Extractor: SaveTube CDN engine (produces verified H.264/AAC MP4 for Camera Roll)
-    try {
-      let cdn = 'cdn400.savetube.vip';
+    const strategyBot = async (): Promise<ResolveResult | null> => {
       try {
-        const cdnController = new AbortController();
-        const cdnTimeout = setTimeout(() => cdnController.abort(), 2000);
-        const cdnRes = await fetch('https://media.savetube.vip/api/random-cdn', {
-          signal: cdnController.signal,
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 2000);
+        const res = await fetch(`https://www.instagram.com/reel/${shortcode}/`, {
+          headers: {
+            'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          },
+          signal: ctrl.signal,
         });
-        clearTimeout(cdnTimeout);
+        clearTimeout(timeout);
 
-        if (cdnRes.ok) {
-          const cdnData = await cdnRes.json();
-          if (cdnData.cdn) cdn = cdnData.cdn;
-        }
-      } catch {
-        // Fallback to default active cdn
-      }
+        if (res.ok) {
+          const html = await res.text();
+          const ogVideoMatch =
+            html.match(/<meta[^>]+property=["']og:video(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i) ||
+            html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video(?::secure_url)?["']/i);
+          const ogTitleMatch =
+            html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i) ||
+            html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i);
+          const ogImageMatch =
+            html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
+            html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
 
-      const infoController = new AbortController();
-      const infoTimeout = setTimeout(() => infoController.abort(), 6000);
+          if (ogTitleMatch?.[1]) title = decodeIg(ogTitleMatch[1]);
+          if (ogImageMatch?.[1]) thumbnail = decodeIg(ogImageMatch[1]);
 
-      const infoRes = await fetch(`https://${cdn}/v2/info`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-        signal: infoController.signal,
-      });
-      clearTimeout(infoTimeout);
-
-      if (infoRes.ok) {
-        const infoJson = await infoRes.json();
-        if (infoJson.data) {
-          const keyHex = 'C5D58EF67A7584E4A29F6C35BBC4EB12';
-          const key = CryptoJS.enc.Hex.parse(keyHex);
-          const rawWords = CryptoJS.enc.Base64.parse(infoJson.data);
-          const ivWords = CryptoJS.lib.WordArray.create(rawWords.words.slice(0, 4), 16);
-          const ciphertextWords = CryptoJS.lib.WordArray.create(
-            rawWords.words.slice(4),
-            rawWords.sigBytes - 16
-          );
-
-          const decrypted = CryptoJS.AES.decrypt(
-            CryptoJS.lib.CipherParams.create({ ciphertext: ciphertextWords }),
-            key,
-            { iv: ivWords, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
-          );
-
-          const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
-          if (decryptedText) {
-            const parsed = JSON.parse(decryptedText);
-            if (parsed.title) {
-              lastDetectedRestrictedTitle = parsed.title;
-            }
-
-            let streamUrl: string | undefined;
-
-            // 1. HIGHEST PRIORITY FOR CAMERA ROLL (iOS Photos / Android MediaStore):
-            // Direct Progressive H.264 (avc1) + AAC streams from Google Video CDN.
-            // These streams (itag 18, itag 22, etc.) are standard H.264/AAC MP4 files.
-            // Apple Photos / PhotoKit strictly accepts H.264/AAC (SaveTube's /download re-encodes
-            // with AV1 [av01], causing iOS PhotoKit to reject it with PHPhotosErrorDomain 3302).
-            const directH264Formats = (parsed.video_formats || [])
-              .filter(
-                (f: any) =>
-                  f.url &&
-                  (f.mime?.includes('mp4') ||
-                    f.itag === 18 ||
-                    f.itag === 22 ||
-                    f.label?.includes('MP4'))
-              )
-              .sort((a: any, b: any) => (b.quality || 0) - (a.quality || 0));
-
-            if (!options.audioOnly && directH264Formats.length > 0) {
-              const requestedQ = parseInt(options.videoQuality || '720', 10);
-              const exactMatch = directH264Formats.find((f: any) => f.quality === requestedQ);
-              streamUrl = (exactMatch || directH264Formats[0]).url;
-            }
-
-            // 2. Audio Only: SaveTube generates clean, authentic MP3
-            if (options.audioOnly && parsed.key && parsed.id) {
-              for (const q of ['128', '320']) {
-                try {
-                  const dlRes = await fetch(`https://${cdn}/download`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      id: parsed.id,
-                      downloadType: 'audio',
-                      quality: q,
-                      key: parsed.key,
-                    }),
-                  });
-                  if (dlRes.ok) {
-                    const dlData = await dlRes.json();
-                    if (dlData.data?.downloadUrl) {
-                      streamUrl = dlData.data.downloadUrl;
-                      break;
-                    }
-                  }
-                } catch {}
-              }
-            }
-
-            // 3. Fallback: SaveTube CDN download endpoint (if no direct progressive H.264 format available)
-            if (!streamUrl && parsed.key && parsed.id) {
-              const targetQuality = options.audioOnly
-                ? '128'
-                : options.videoQuality === '1080'
-                ? '1080'
-                : options.videoQuality === '360'
-                ? '360'
-                : '720';
-
-              const qualitiesToTry = options.audioOnly
-                ? ['128', '320']
-                : [targetQuality, '720', '360', '1080'];
-
-              for (const q of qualitiesToTry) {
-                try {
-                  const dlRes = await fetch(`https://${cdn}/download`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      id: parsed.id,
-                      downloadType: options.audioOnly ? 'audio' : 'video',
-                      quality: q,
-                      key: parsed.key,
-                    }),
-                  });
-                  if (dlRes.ok) {
-                    const dlData = await dlRes.json();
-                    if (dlData.data?.downloadUrl) {
-                      streamUrl = dlData.data.downloadUrl;
-                      break;
-                    }
-                  }
-                } catch {}
-              }
-            }
-
-            if (streamUrl) {
-              const availableQualities =
-                directH264Formats.length > 0
-                  ? directH264Formats.map(
-                      (f: any) => `${f.quality || '360'}p MP4 (Photos Compatible)`
-                    )
-                  : ['720p HD', 'Standard MP4'];
-              availableQualities.push('Audio Only (MP3)');
-
-              return {
-                status: 'redirect',
-                url: streamUrl,
-                filename: `youtube_${videoId}.${options.audioOnly ? 'mp3' : 'mp4'}`,
-                title: parsed.title || 'YouTube Video',
-                thumbnail:
-                  parsed.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-                duration: typeof parsed.duration === 'number' ? parsed.duration : undefined,
-                platform: 'youtube',
-                originalUrl: url,
-                availableQualities,
-                audioOnlyAvailable: true,
-              };
+          if (ogVideoMatch?.[1]) {
+            const stream = decodeIg(ogVideoMatch[1]);
+            if (stream.includes('.mp4') || stream.includes('fbcdn.net') || stream.includes('cdninstagram.com')) {
+              return buildResult(stream, 'og:video bot crawler');
             }
           }
         }
+      } catch {}
+      return null;
+    };
+
+    // Run both simultaneously: if either succeeds, return immediately
+    const results = await Promise.allSettled([strategyEmbed(), strategyBot()]);
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) {
+        return r.value;
       }
-    } catch (err) {
-      console.log('SaveTube extraction error, falling back:', err);
     }
-
-    // 2. Secondary Fallback: Piped Engine (strictly excluding broken LBRY/Odysee 401 mirrors)
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-      const res = await fetch(`https://api.piped.private.coffee/streams/${videoId}`, {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        const validStreams = (data.videoStreams || []).filter(
-          (s: any) =>
-            s.url &&
-            !s.url.includes('odycdn.com') &&
-            !s.videoOnly &&
-            (s.mimeType?.includes('mp4') || s.format?.includes('MP4'))
-        );
-
-        if (validStreams.length > 0) {
-          return {
-            status: 'redirect',
-            url: validStreams[0].url,
-            filename: `youtube_${videoId}.mp4`,
-            title: data.title || 'YouTube Video',
-            thumbnail:
-              data.thumbnailUrl || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-            duration: data.duration,
-            platform: 'youtube',
-            originalUrl: url,
-            availableQualities: ['Standard MP4 (Photos Compatible)', 'Audio Only (M4A)'],
-            audioOnlyAvailable: true,
-          };
-        }
-      }
-    } catch {}
-  } catch {
-    // Handled by fallback
+  } catch (err) {
+    console.log('[Instagram] resolve error:', err);
   }
   return null;
 }
@@ -1845,7 +1418,7 @@ export function parseCobaltErrorCode(code?: string): string {
     case 'error.api.unsupported_service':
       return 'This platform is not supported by Cobalt.';
     case 'error.api.service_unavailable':
-      return 'The social platform is currently unavailable or rate-limited.';
+      return 'The server is currently unavailable or rate-limited.';
     case 'error.api.content.private':
       return 'This content is private or age-restricted and cannot be downloaded.';
     case 'error.api.content.post_not_found':
@@ -1854,8 +1427,6 @@ export function parseCobaltErrorCode(code?: string): string {
       return 'The pasted link is invalid or incomplete.';
     case 'error.api.rate_limit':
       return 'Download rate limit exceeded. Please wait a moment.';
-    case 'error.api.youtube.login_required':
-      return 'YouTube requires authentication for this video.';
     default:
       return code ? `Resolution failed: ${code}` : 'Failed to resolve media from URL.';
   }
@@ -1898,7 +1469,7 @@ export function mockResolveMedia(url: string): ResolveResult {
     duration: 15,
     platform: platformInfo.platform,
     originalUrl: url,
-    availableQualities: ['1080p (Full HD)', '720p (HD)', '480p (SD)', 'Audio Only (MP3)'],
-    audioOnlyAvailable: true,
+    availableQualities: ['1080p (Full HD)', '720p (HD)', '480p (SD)'],
+    audioOnlyAvailable: false,
   };
 }

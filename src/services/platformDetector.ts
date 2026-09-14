@@ -33,14 +33,25 @@ export function extractUrl(text: string | null | undefined): string | null {
 export function detectPlatform(url: string): PlatformInfo {
   const cleanUrl = url.trim();
 
+  // Explicitly reject YouTube per policy
+  if (PLATFORM_PATTERNS.youtube.test(cleanUrl)) {
+    return {
+      platform: 'youtube',
+      displayName: 'Media',
+      color: '#EF4444',
+      iconName: 'alert-circle-outline',
+      isValid: false,
+    };
+  }
+
   for (const [key, regex] of Object.entries(PLATFORM_PATTERNS) as [
     Exclude<SupportedPlatform, 'unknown'>,
     RegExp
   ][]) {
-    if (regex.test(cleanUrl)) {
+    if (key !== 'youtube' && regex.test(cleanUrl)) {
       return {
         platform: key,
-        displayName: getPlatformDisplayName(key),
+        displayName: 'Media',
         color: getPlatformColor(key),
         iconName: getPlatformIcon(key),
         isValid: true,
@@ -50,7 +61,7 @@ export function detectPlatform(url: string): PlatformInfo {
 
   return {
     platform: 'unknown',
-    displayName: 'Social Link',
+    displayName: 'Link',
     color: '#6B7280',
     iconName: 'link-outline',
     isValid: false,
@@ -58,70 +69,15 @@ export function detectPlatform(url: string): PlatformInfo {
 }
 
 export function getPlatformDisplayName(platform: SupportedPlatform): string {
-  switch (platform) {
-    case 'tiktok':
-      return 'TikTok';
-    case 'instagram':
-      return 'Instagram';
-    case 'youtube':
-      return 'YouTube';
-    case 'twitter':
-      return 'X / Twitter';
-    case 'facebook':
-      return 'Facebook';
-    case 'pinterest':
-      return 'Pinterest';
-    case 'reddit':
-      return 'Reddit';
-    case 'snapchat':
-      return 'Snapchat';
-    default:
-      return 'Unknown';
-  }
+  if (platform === 'youtube') return 'YouTube (Unsupported)';
+  return 'Media';
 }
 
 export function getPlatformColor(platform: SupportedPlatform): string {
-  switch (platform) {
-    case 'tiktok':
-      return '#FE2C55';
-    case 'instagram':
-      return '#E1306C';
-    case 'youtube':
-      return '#FF0000';
-    case 'twitter':
-      return '#1DA1F2';
-    case 'facebook':
-      return '#1877F2';
-    case 'pinterest':
-      return '#E60023';
-    case 'reddit':
-      return '#FF4500';
-    case 'snapchat':
-      return '#FFFC00';
-    default:
-      return '#6B7280';
-  }
+  if (platform === 'youtube') return '#EF4444';
+  return '#A855F7';
 }
 
 export function getPlatformIcon(platform: SupportedPlatform): string {
-  switch (platform) {
-    case 'tiktok':
-      return 'logo-tiktok';
-    case 'instagram':
-      return 'logo-instagram';
-    case 'youtube':
-      return 'logo-youtube';
-    case 'twitter':
-      return 'logo-twitter';
-    case 'facebook':
-      return 'logo-facebook';
-    case 'pinterest':
-      return 'logo-pinterest';
-    case 'reddit':
-      return 'logo-reddit';
-    case 'snapchat':
-      return 'logo-snapchat';
-    default:
-      return 'globe-outline';
-  }
+  return 'videocam-outline';
 }

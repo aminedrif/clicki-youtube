@@ -62,11 +62,7 @@ export function useDownloadManager() {
       if (Platform.OS === 'web') {
         try {
           const rawFilename = resolveData.filename || `black_hole_${Date.now()}.mp4`;
-          const ext =
-            selectedFormat.toLowerCase().includes('mp3') ||
-            selectedFormat.toLowerCase().includes('audio')
-              ? '.mp3'
-              : '.mp4';
+          const ext = '.mp4';
           const baseName = sanitizeFilename(rawFilename.replace(/\.[^/.]+$/, ''));
           const finalFilename = `${baseName}_${Date.now()}${ext}`;
 
@@ -125,7 +121,7 @@ export function useDownloadManager() {
             error: null,
             completedRecord: savedRecord,
             savedToGallery: false,
-            isAudio: ext === '.mp3',
+            isAudio: false,
           });
 
           return savedRecord;
@@ -142,10 +138,7 @@ export function useDownloadManager() {
 
       try {
         const dirUri = await ensureMediaDirectoryExists();
-        const isAudio =
-          selectedFormat.toLowerCase().includes('mp3') ||
-          selectedFormat.toLowerCase().includes('audio');
-        const ext = isAudio ? '.mp3' : '.mp4';
+        const ext = '.mp4';
         // Safe ASCII filename to ensure 100% compatibility with native camera roll and file system
         const safeLocalFilename = `black_hole_${Date.now()}_${Math.floor(Math.random() * 10000)}${ext}`;
         const targetUri = `${dirUri}${safeLocalFilename}`;
@@ -195,14 +188,12 @@ export function useDownloadManager() {
         // Automatically save video directly to device Photos app (Camera Roll)
         let savedToGallery = false;
         let permissionDenied = false;
-        if (!isAudio) {
-          try {
-            const galleryResult = await saveToGalleryAsync(downloadResult.uri);
-            savedToGallery = galleryResult.success;
-            permissionDenied = Boolean(galleryResult.permissionDenied);
-          } catch (mediaErr) {
-            console.warn('Could not auto-save to camera roll:', mediaErr);
-          }
+        try {
+          const galleryResult = await saveToGalleryAsync(downloadResult.uri);
+          savedToGallery = galleryResult.success;
+          permissionDenied = Boolean(galleryResult.permissionDenied);
+        } catch (mediaErr) {
+          console.warn('Could not auto-save to camera roll:', mediaErr);
         }
 
         // Cache thumbnail locally for offline viewing in history
@@ -233,7 +224,7 @@ export function useDownloadManager() {
           completedRecord: savedRecord,
           savedToGallery,
           permissionDenied,
-          isAudio,
+          isAudio: false,
         });
 
         return savedRecord;

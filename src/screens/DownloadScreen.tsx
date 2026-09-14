@@ -15,6 +15,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useDownloadManager } from '../hooks/useDownloadManager';
 import { formatBytes, triggerBrowserFileDownload, shareFileAsync } from '../services/fileService';
 import { showInterstitialOnDownloadComplete } from '../services/adMobService';
+import { BlackHoleVisual } from '../components/BlackHoleVisual';
 import { colors } from '../theme/colors';
 
 type DownloadScreenProps = NativeStackScreenProps<RootStackParamList, 'Download'>;
@@ -48,9 +49,7 @@ export const DownloadScreen: React.FC<DownloadScreenProps> = ({
       const cleanTitle = (downloadState.completedRecord.title || 'video')
         .replace(/[^a-zA-Z0-9._-]/g, '_')
         .substring(0, 50);
-      const ext = downloadState.completedRecord.format.toLowerCase().includes('mp3')
-        ? '.mp3'
-        : '.mp4';
+      const ext = '.mp4';
       const filename = `${cleanTitle}${ext}`;
 
       triggerBrowserFileDownload(url, filename);
@@ -61,7 +60,7 @@ export const DownloadScreen: React.FC<DownloadScreenProps> = ({
     if (downloadState.completedRecord?.file_path) {
       await shareFileAsync(
         downloadState.completedRecord.file_path,
-        Boolean(downloadState.isAudio)
+        false
       );
     }
   };
@@ -94,10 +93,16 @@ export const DownloadScreen: React.FC<DownloadScreenProps> = ({
           /* Active Streaming State */
           <View style={styles.stateCard}>
             <View style={styles.cosmicRingContainer}>
-              <View style={styles.cosmicRingOuter}>
-                <ActivityIndicator size="large" color={colors.glowViolet} />
+              <BlackHoleVisual
+                size={140}
+                status="downloading"
+                showLabel={false}
+                disabled
+              />
+              <View style={styles.percentageCenterOverlay}>
+                <Text style={styles.percentageText}>{percentage}%</Text>
+                <Text style={styles.percentageSubtext}>INGESTING</Text>
               </View>
-              <Text style={styles.percentageText}>{percentage}%</Text>
             </View>
 
             <Text style={styles.mediaTitle} numberOfLines={2}>
@@ -155,8 +160,6 @@ export const DownloadScreen: React.FC<DownloadScreenProps> = ({
                 ? 'Your file has been sent to your browser downloads.'
                 : downloadState.savedToGallery
                 ? 'Your video has been saved directly to your iPhone Camera Roll.'
-                : downloadState.isAudio
-                ? 'Audio file saved locally. Tap below if you want to save to Files or share.'
                 : 'Video saved to device storage. Tap below to share or save to Files.'}
             </Text>
 
@@ -206,7 +209,9 @@ export const DownloadScreen: React.FC<DownloadScreenProps> = ({
                 onPress={handleGoHome}
                 activeOpacity={0.8}
               >
-                <Ionicons name="arrow-back-circle-outline" size={20} color="#000000" />
+                <View style={styles.actionBtnHoleBadge}>
+                  <BlackHoleVisual size={22} showLabel={false} disabled />
+                </View>
                 <Text style={styles.primaryActionBtnText}>INGEST ANOTHER LINK</Text>
               </TouchableOpacity>
 
@@ -248,7 +253,9 @@ export const DownloadScreen: React.FC<DownloadScreenProps> = ({
                 }
                 activeOpacity={0.8}
               >
-                <Ionicons name="refresh" size={20} color="#000000" />
+                <View style={styles.actionBtnHoleBadge}>
+                  <BlackHoleVisual size={22} showLabel={false} disabled />
+                </View>
                 <Text style={styles.primaryActionBtnText}>RETRY DOWNLOAD</Text>
               </TouchableOpacity>
 
@@ -301,22 +308,30 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 20,
+    marginVertical: 14,
   },
-  cosmicRingOuter: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 2,
-    borderColor: 'rgba(168, 85, 247, 0.25)',
+  percentageCenterOverlay: {
+    position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
   },
   percentageText: {
-    position: 'absolute',
-    color: colors.textPrimary,
-    fontSize: 22,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  percentageSubtext: {
+    color: colors.glowCyan,
+    fontSize: 7,
     fontWeight: '700',
+    letterSpacing: 1.5,
+    marginTop: 1,
   },
   mediaTitle: {
     color: colors.textPrimary,
@@ -438,6 +453,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  actionBtnHoleBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
   },
   primaryActionBtn: {
     backgroundColor: '#FFFFFF',

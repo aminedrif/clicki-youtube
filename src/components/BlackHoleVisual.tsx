@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,17 +20,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 
+// Exact same black hole logo image used throughout the application and icon
+const LOGO_SOURCE = require('../../assets/icon.png');
+
 const { width } = Dimensions.get('window');
-const HOLE_SIZE = Math.min(width * 0.72, 290);
+const DEFAULT_HOLE_SIZE = Math.min(width * 0.72, 290);
 
 export type BlackHoleStatus = 'idle' | 'resolving' | 'downloading' | 'success' | 'error';
 
-interface BlackHoleVisualProps {
-  onPress: () => void;
+export interface BlackHoleVisualProps {
+  onPress?: () => void;
   isSucking?: boolean;
   disabled?: boolean;
   status?: BlackHoleStatus;
   label?: string;
+  size?: number;
+  showLabel?: boolean;
+  showAmbientGlow?: boolean;
 }
 
 export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
@@ -39,19 +45,27 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
   disabled = false,
   status = 'idle',
   label,
+  size,
+  showLabel,
+  showAmbientGlow,
 }) => {
-  // Idle breathing pulse animation
+  const holeSize = size || DEFAULT_HOLE_SIZE;
+  const isCompact = holeSize < 80;
+  const shouldShowGlow = showAmbientGlow !== undefined ? showAmbientGlow : !isCompact;
+  const shouldShowLabel = showLabel !== undefined ? showLabel : !isCompact;
+
+  // Breathing pulse: expands larger and then returns back to size
   const pulseAnim = useSharedValue(0);
-  // Continuous rotation for accretion disk
+  // Continuous rotation: the blue shadow swirling around the hole
   const rotationAnim = useSharedValue(0);
-  // Sucking in / ingestion transition animation
+  // Ingestion vortex transition on link detection / ingest
   const suckAnim = useSharedValue(0);
-  // Touch press feedback
+  // Touch press spring feedback
   const pressAnim = useSharedValue(1);
 
   // Animated moving dots during resolving and downloading
-  const [dots, setDots] = React.useState('.');
-  React.useEffect(() => {
+  const [dots, setDots] = useState('.');
+  useEffect(() => {
     if (status === 'resolving' || status === 'downloading') {
       const interval = setInterval(() => {
         setDots((prev) => (prev.length >= 3 ? '.' : prev + '.'));
@@ -63,15 +77,15 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
   }, [status]);
 
   useEffect(() => {
-    // Ambient breathing pulse
+    // Ambient breathing pulse: smooth expansion and contraction (getting bigger, then returning to size)
     pulseAnim.value = withRepeat(
-      withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
       -1,
       true
     );
 
-    // Continuous celestial rotation (spins faster when downloading)
-    const duration = status === 'downloading' ? 6000 : 24000;
+    // Continuous celestial rotation of the blue shadow around the hole
+    const duration = status === 'downloading' ? 5000 : 20000;
     rotationAnim.value = withRepeat(
       withTiming(360, { duration, easing: Easing.linear }),
       -1,
@@ -83,45 +97,53 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
     if (isSucking) {
       suckAnim.value = withSequence(
         withTiming(1, { duration: 550, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }),
-        withTiming(0, { duration: 300 })
+        withTiming(0, { duration: 350 })
       );
     }
   }, [isSucking]);
 
   const handlePressIn = () => {
-    pressAnim.value = withSpring(0.94, { damping: 15, stiffness: 200 });
+    if (onPress && !disabled) {
+      pressAnim.value = withSpring(0.93, { damping: 15, stiffness: 220 });
+    }
   };
 
   const handlePressOut = () => {
-    pressAnim.value = withSpring(1, { damping: 12, stiffness: 180 });
+    if (onPress && !disabled) {
+      pressAnim.value = withSpring(1, { damping: 12, stiffness: 180 });
+    }
   };
 
-  const animatedHoleStyle = useAnimatedStyle(() => {
-    const pulseScale = interpolate(pulseAnim.value, [0, 1], [0.97, 1.03]);
-    const suckScale = interpolate(suckAnim.value, [0, 0.7, 1], [1, 0.82, 1]);
+  // Rotating and breathing animation for the exact logo image
+  const animatedLogoStyle = useAnimatedStyle(() => {
+    // Scale breathes from 0.93 to 1.15: visibly getting bigger and returning to size
+    const pulseScale = interpolate(pulseAnim.value, [0, 1], [0.93, 1.15]);
+    const suckScale = interpolate(suckAnim.value, [0, 0.65, 1], [1, 0.8, 1]);
+    const suckRotate = interpolate(suckAnim.value, [0, 1], [0, 720]);
 
     return {
       transform: [
         { scale: pressAnim.value * pulseScale * suckScale },
-      ],
-    };
-  });
-
-  const animatedAccretionStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(pulseAnim.value, [0, 1], [0.75, 1]);
-    const suckRotate = interpolate(suckAnim.value, [0, 1], [0, 720]);
-
-    return {
-      opacity,
-      transform: [
         { rotate: `${rotationAnim.value + suckRotate}deg` },
       ],
     };
   });
 
+  // Pulsing atmospheric sky-blue halo
+  const animatedGlowStyle = useAnimatedStyle(() => {
+    const glowScale = interpolate(pulseAnim.value, [0, 1], [0.92, 1.25]);
+    const glowOpacity = interpolate(pulseAnim.value, [0, 1], [0.35, 0.7]);
+
+    return {
+      opacity: glowOpacity,
+      transform: [{ scale: glowScale }],
+    };
+  });
+
+  // Inward ingestion ring during suction
   const animatedInwardRingStyle = useAnimatedStyle(() => {
-    const ringScale = interpolate(suckAnim.value, [0, 1], [1.4, 0.1]);
-    const ringOpacity = interpolate(suckAnim.value, [0, 0.2, 0.8, 1], [0, 0.9, 0.8, 0]);
+    const ringScale = interpolate(suckAnim.value, [0, 1], [1.35, 0.1]);
+    const ringOpacity = interpolate(suckAnim.value, [0, 0.2, 0.8, 1], [0, 0.95, 0.8, 0]);
 
     return {
       opacity: ringOpacity,
@@ -129,7 +151,21 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
     };
   });
 
-  // Determine center text and colors
+  const isSuccess = status === 'success';
+  const isError = status === 'error';
+  const isWorking = status === 'resolving' || status === 'downloading';
+
+  let glowColors: [string, string, ...string[]] = [
+    'rgba(56, 189, 248, 0.45)',
+    'rgba(0, 210, 255, 0.15)',
+    'transparent',
+  ];
+  if (isSuccess) {
+    glowColors = ['rgba(16, 185, 129, 0.5)', 'rgba(6, 182, 212, 0.15)', 'transparent'];
+  } else if (isError) {
+    glowColors = ['rgba(239, 68, 68, 0.5)', 'rgba(185, 28, 28, 0.15)', 'transparent'];
+  }
+
   let displayText = label;
   if (!displayText) {
     if (status === 'resolving') displayText = `INGESTING${dots}`;
@@ -139,230 +175,191 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
     else displayText = 'INGEST';
   }
 
-  const isSuccess = status === 'success';
-  const isError = status === 'error';
-  const isWorking = status === 'resolving' || status === 'downloading';
+  const visualContent = (
+    <View style={[styles.visualContainer, { width: holeSize, height: holeSize }]}>
+      {/* Outer ambient sky-blue gravitational halo */}
+      {shouldShowGlow && (
+        <Animated.View
+          style={[
+            styles.ambientGlow,
+            {
+              width: holeSize * 1.18,
+              height: holeSize * 1.18,
+              borderRadius: (holeSize * 1.18) / 2,
+            },
+            animatedGlowStyle,
+          ]}
+          pointerEvents="none"
+        >
+          <LinearGradient
+            colors={glowColors}
+            style={{ width: '100%', height: '100%', borderRadius: (holeSize * 1.18) / 2 }}
+          />
+        </Animated.View>
+      )}
 
-  return (
-    <View style={styles.outerContainer}>
+      {/* The EXACT SAME Black Hole Logo Image with Continuous Rotation & Breathing Scale */}
+      <Animated.Image
+        source={LOGO_SOURCE}
+        style={[
+          {
+            width: holeSize,
+            height: holeSize,
+            borderRadius: holeSize / 2,
+          },
+          animatedLogoStyle,
+        ]}
+        resizeMode="contain"
+      />
+
+      {/* Inward Ingestion Vortex Ring */}
+      {isSucking && (
+        <Animated.View
+          style={[
+            styles.inwardRing,
+            {
+              width: holeSize * 0.85,
+              height: holeSize * 0.85,
+              borderRadius: (holeSize * 0.85) / 2,
+            },
+            animatedInwardRingStyle,
+          ]}
+          pointerEvents="none"
+        />
+      )}
+
+      {/* Singularity Center Label Overlay */}
+      {shouldShowLabel && (
+        <View
+          style={[
+            styles.centerOverlay,
+            {
+              width: holeSize * 0.42,
+              height: holeSize * 0.42,
+              borderRadius: (holeSize * 0.42) / 2,
+            },
+            isSuccess && { borderColor: 'rgba(16, 185, 129, 0.6)' },
+            isError && { borderColor: 'rgba(239, 68, 68, 0.6)' },
+          ]}
+          pointerEvents="none"
+        >
+          {isSuccess && (
+            <Ionicons
+              name="checkmark-circle"
+              size={Math.max(16, Math.round(holeSize * 0.09))}
+              color={colors.success}
+              style={{ marginBottom: 2 }}
+            />
+          )}
+          {isError && (
+            <Ionicons
+              name="alert-circle"
+              size={Math.max(16, Math.round(holeSize * 0.09))}
+              color={colors.danger}
+              style={{ marginBottom: 2 }}
+            />
+          )}
+          <Text
+            style={[
+              styles.singularityLabel,
+              { fontSize: Math.max(9, Math.round(holeSize * 0.038)) },
+              isSuccess && styles.labelSuccess,
+              isError && styles.labelError,
+              isWorking && styles.labelWorking,
+            ]}
+            numberOfLines={2}
+          >
+            {displayText}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  if (onPress) {
+    return (
       <TouchableOpacity
         activeOpacity={1}
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={disabled || isWorking}
-        style={styles.touchTarget}
+        style={[
+          styles.touchTarget,
+          { width: holeSize + (isCompact ? 8 : 40), height: holeSize + (isCompact ? 8 : 40) },
+        ]}
       >
-        <Animated.View style={[styles.holeContainer, animatedHoleStyle]}>
-          {/* Outermost ambient gravitational glow */}
-          <LinearGradient
-            colors={
-              isSuccess
-                ? ['rgba(16, 185, 129, 0.25)', 'rgba(5, 150, 105, 0.1)', 'transparent']
-                : isError
-                ? ['rgba(239, 68, 68, 0.25)', 'rgba(185, 28, 28, 0.1)', 'transparent']
-                : ['rgba(121, 40, 202, 0.18)', 'rgba(61, 28, 104, 0.08)', 'transparent']
-            }
-            style={styles.outerAmbientGlow}
-          />
-
-          {/* Rotating accretion disk */}
-          <Animated.View style={[styles.accretionDisk, animatedAccretionStyle]}>
-            <LinearGradient
-              colors={
-                isSuccess
-                  ? [
-                      'rgba(16, 185, 129, 0.45)',
-                      'rgba(6, 182, 212, 0.3)',
-                      'rgba(16, 185, 129, 0.15)',
-                      'transparent',
-                    ]
-                  : [
-                      'rgba(147, 51, 234, 0.35)',
-                      'rgba(6, 182, 212, 0.25)',
-                      'rgba(121, 40, 202, 0.15)',
-                      'rgba(30, 16, 53, 0.05)',
-                      'transparent',
-                    ]
-              }
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.accretionGradient}
-            />
-          </Animated.View>
-
-          {/* Inward sucking event horizon ring */}
-          <Animated.View style={[styles.inwardRing, animatedInwardRingStyle]} />
-
-          {/* Event Horizon boundary ring */}
-          <View
-            style={[
-              styles.eventHorizonRing,
-              isSuccess && { borderColor: 'rgba(16, 185, 129, 0.7)' },
-              isError && { borderColor: 'rgba(239, 68, 68, 0.7)' },
-            ]}
-          >
-            <LinearGradient
-              colors={
-                isSuccess
-                  ? ['rgba(16, 185, 129, 0.4)', 'rgba(6, 182, 212, 0.2)', 'rgba(0, 0, 0, 0.9)']
-                  : isError
-                  ? ['rgba(239, 68, 68, 0.4)', 'rgba(121, 40, 202, 0.2)', 'rgba(0, 0, 0, 0.9)']
-                  : ['rgba(168, 85, 247, 0.4)', 'rgba(6, 182, 212, 0.2)', 'rgba(0, 0, 0, 0.9)']
-              }
-              style={styles.horizonGradient}
-            />
-          </View>
-
-          {/* The Singularity (Pure OLED Black Center) */}
-          <View
-            style={[
-              styles.singularity,
-              isSuccess && { borderColor: 'rgba(16, 185, 129, 0.5)' },
-              isError && { borderColor: 'rgba(239, 68, 68, 0.5)' },
-            ]}
-          >
-            <View
-              style={[
-                styles.singularityInnerGlow,
-                isSuccess && { backgroundColor: '#021810' },
-                isError && { backgroundColor: '#180303' },
-              ]}
-            />
-            {isSuccess && (
-              <Ionicons
-                name="checkmark-circle"
-                size={26}
-                color={colors.success}
-                style={{ marginBottom: 4 }}
-              />
-            )}
-            <Text
-              style={[
-                styles.singularityLabel,
-                isSuccess && styles.labelSuccess,
-                isError && styles.labelError,
-                isWorking && styles.labelWorking,
-              ]}
-              numberOfLines={2}
-            >
-              {displayText}
-            </Text>
-          </View>
-        </Animated.View>
+        {visualContent}
       </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[styles.staticWrapper, { width: holeSize, height: holeSize }]}>
+      {visualContent}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   touchTarget: {
-    width: HOLE_SIZE + 60,
-    height: HOLE_SIZE + 60,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  holeContainer: {
-    width: HOLE_SIZE,
-    height: HOLE_SIZE,
+  staticWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visualContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
-  outerAmbientGlow: {
+  ambientGlow: {
     position: 'absolute',
-    width: HOLE_SIZE + 50,
-    height: HOLE_SIZE + 50,
-    borderRadius: (HOLE_SIZE + 50) / 2,
-  },
-  accretionDisk: {
-    position: 'absolute',
-    width: HOLE_SIZE,
-    height: HOLE_SIZE,
-    borderRadius: HOLE_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accretionGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: HOLE_SIZE / 2,
   },
   inwardRing: {
     position: 'absolute',
-    width: HOLE_SIZE * 0.9,
-    height: HOLE_SIZE * 0.9,
-    borderRadius: (HOLE_SIZE * 0.9) / 2,
     borderWidth: 2,
-    borderColor: colors.glowCyan,
-    shadowColor: colors.glowViolet,
+    borderColor: '#38BDF8',
+    shadowColor: '#00D2FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
+    shadowOpacity: 0.95,
+    shadowRadius: 14,
   },
-  eventHorizonRing: {
+  centerOverlay: {
     position: 'absolute',
-    width: HOLE_SIZE * 0.76,
-    height: HOLE_SIZE * 0.76,
-    borderRadius: (HOLE_SIZE * 0.76) / 2,
-    borderWidth: 1.5,
-    borderColor: 'rgba(168, 85, 247, 0.6)',
-    overflow: 'hidden',
-  },
-  horizonGradient: {
-    width: '100%',
-    height: '100%',
-  },
-  singularity: {
-    width: HOLE_SIZE * 0.62,
-    height: HOLE_SIZE * 0.62,
-    borderRadius: (HOLE_SIZE * 0.62) / 2,
-    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
     borderWidth: 1,
-    borderColor: '#181A22',
-    shadowColor: '#000000',
+    borderColor: 'rgba(56, 189, 248, 0.28)',
+    paddingHorizontal: 6,
+    shadowColor: '#00D2FF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  singularityInnerGlow: {
-    position: 'absolute',
-    width: '90%',
-    height: '90%',
-    borderRadius: (HOLE_SIZE * 0.62 * 0.9) / 2,
-    backgroundColor: '#050308',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
   singularityLabel: {
-    color: 'rgba(255, 255, 255, 0.45)',
-    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.75)',
     fontWeight: '700',
-    letterSpacing: 2.5,
+    letterSpacing: 2,
     textAlign: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   labelSuccess: {
     color: '#10B981',
     fontWeight: '800',
     letterSpacing: 1.5,
-    fontSize: 11,
   },
   labelWorking: {
-    color: '#06B6D4',
+    color: '#38BDF8',
     fontWeight: '700',
     letterSpacing: 2,
-    fontSize: 11,
   },
   labelError: {
     color: '#EF4444',
     fontWeight: '700',
     letterSpacing: 1.5,
-    fontSize: 11,
   },
 });

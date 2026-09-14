@@ -43,8 +43,19 @@ export function useClipboardDetector() {
 
       const platformInfo = detectPlatform(extracted);
 
+      if (extracted.includes('youtube.com') || extracted.includes('youtu.be') || platformInfo.platform === 'youtube') {
+        const msg = 'YouTube downloads are not supported.';
+        setFeedbackMessage(msg);
+        return {
+          hasValidUrl: false,
+          url: extracted,
+          platformInfo,
+          message: msg,
+        };
+      }
+
       if (!platformInfo.isValid) {
-        const msg = 'Unsupported platform. Supported: TikTok, IG, YT, X, FB, Pinterest, Reddit, Snapchat.';
+        const msg = 'Unsupported link. Please copy a valid media link.';
         setFeedbackMessage(msg);
         return {
           hasValidUrl: false,

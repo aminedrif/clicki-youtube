@@ -9,32 +9,25 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DownloadRecord } from '../database/types';
-import { PlatformBadge } from './PlatformBadge';
-import { formatBytes } from '../services/fileService';
 import { colors } from '../theme/colors';
 
 interface HistoryCardProps {
   item: DownloadRecord;
   onPress: (item: DownloadRecord) => void;
   onDelete: (item: DownloadRecord) => void;
+  onShare: (item: DownloadRecord) => void;
 }
 
 export const HistoryCard: React.FC<HistoryCardProps> = ({
   item,
   onPress,
   onDelete,
+  onShare,
 }) => {
-  const formattedDate = new Date(item.downloaded_at).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
   const confirmDelete = () => {
     Alert.alert(
-      'Delete Download',
-      'Remove this video from your device and history?',
+      'Delete Video',
+      'Remove this video from your device?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -46,15 +39,14 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
     );
   };
 
-  const isAudio = item.format.toLowerCase().includes('mp3');
-
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      style={styles.container}
-      onPress={() => onPress(item)}
-    >
-      <View style={styles.thumbnailContainer}>
+    <View style={styles.card}>
+      {/* Video Preview / Tap to Play */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={styles.thumbnailContainer}
+        onPress={() => onPress(item)}
+      >
         {item.thumbnail_local_path ? (
           <Image
             source={{ uri: item.thumbnail_local_path }}
@@ -63,64 +55,54 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
           />
         ) : (
           <View style={styles.thumbnailPlaceholder}>
-            <Ionicons
-              name={isAudio ? 'musical-notes' : 'videocam'}
-              size={24}
-              color={colors.textMuted}
-            />
+            <Ionicons name="videocam" size={38} color={colors.textMuted} />
           </View>
         )}
-        <View style={styles.playOverlay}>
-          <Ionicons name="play" size={14} color="#FFFFFF" />
+        <View style={styles.playButtonCircle}>
+          <Ionicons name="play" size={24} color="#FFFFFF" style={styles.playIcon} />
         </View>
+      </TouchableOpacity>
+
+      {/* Actions: ONLY Share and Delete */}
+      <View style={styles.actionsRow}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.shareBtn}
+          onPress={() => onShare(item)}
+        >
+          <Ionicons name="share-social-outline" size={18} color={colors.textPrimary} />
+          <Text style={styles.shareText}>SHARE</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.deleteBtn}
+          onPress={confirmDelete}
+        >
+          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+          <Text style={styles.deleteText}>DELETE</Text>
+        </TouchableOpacity>
       </View>
-
-      <View style={styles.detailsContainer}>
-        <View style={styles.topRow}>
-          <PlatformBadge platform={item.platform} size="small" />
-          <TouchableOpacity
-            onPress={confirmDelete}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={styles.deleteButton}
-          >
-            <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.title} numberOfLines={2}>
-          {item.title}
-        </Text>
-
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>{item.quality}</Text>
-          <Text style={styles.bullet}>•</Text>
-          <Text style={styles.metaText}>{formatBytes(item.file_size)}</Text>
-          <Text style={styles.bullet}>•</Text>
-          <Text style={styles.metaText}>{formattedDate}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
+  card: {
     backgroundColor: colors.surfaceCard,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 18,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
-    alignItems: 'center',
+    overflow: 'hidden',
   },
   thumbnailContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceElevated,
+    width: '100%',
+    height: 200,
+    backgroundColor: '#0B0C10',
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   thumbnail: {
     width: '100%',
@@ -131,47 +113,69 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.surfaceElevated,
   },
-  playOverlay: {
+  playButtonCircle: {
     position: 'absolute',
-    bottom: 6,
-    right: 6,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 12,
-    padding: 4,
-  },
-  detailsContainer: {
-    flex: 1,
-    marginLeft: 12,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  topRow: {
+  playIcon: {
+    marginLeft: 3,
+  },
+  actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: 12,
+    gap: 10,
+    backgroundColor: colors.surfaceCard,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+  },
+  shareBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
   },
-  deleteButton: {
-    padding: 4,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '600',
+  shareText: {
     color: colors.textPrimary,
-    lineHeight: 18,
-    marginBottom: 6,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
-  metaRow: {
+  deleteBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
   },
-  metaText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  bullet: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginHorizontal: 4,
+  deleteText: {
+    color: colors.danger,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

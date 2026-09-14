@@ -5,19 +5,20 @@ import { SupportedPlatform } from '../database/types';
 import { getPlatformColor, getPlatformDisplayName, getPlatformIcon } from '../services/platformDetector';
 
 interface PlatformBadgeProps {
-  platform: SupportedPlatform;
+  platform?: SupportedPlatform;
+  format?: string;
   size?: 'small' | 'medium' | 'large';
   showLabel?: boolean;
 }
 
 export const PlatformBadge: React.FC<PlatformBadgeProps> = ({
-  platform,
+  format,
   size = 'medium',
   showLabel = true,
 }) => {
-  const color = getPlatformColor(platform);
-  const name = getPlatformDisplayName(platform);
-  const iconName = getPlatformIcon(platform) as any;
+  const color = '#38BDF8';
+  const name = 'VIDEO';
+  const iconName = 'videocam-outline';
 
   const iconSize = size === 'small' ? 12 : size === 'large' ? 18 : 14;
   const paddingH = size === 'small' ? 6 : size === 'large' ? 12 : 8;

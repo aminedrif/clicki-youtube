@@ -22,21 +22,17 @@ export const DEFAULT_QUALITY_OPTIONS: QualityOption[] = [
   { id: '1080', label: '1080p Full HD', format: 'mp4', quality: '1080', badge: 'High Res' },
   { id: '720', label: '720p HD', format: 'mp4', quality: '720', badge: 'Recommended' },
   { id: '480', label: '480p SD', format: 'mp4', quality: '480' },
-  { id: 'audio', label: 'Audio Only (MP3)', format: 'mp3', quality: 'best', isAudio: true },
 ];
 
 export const QualitySelector: React.FC<QualitySelectorProps> = ({
   selectedId,
   onSelect,
-  audioOnlyAvailable = true,
 }) => {
-  const options = audioOnlyAvailable
-    ? DEFAULT_QUALITY_OPTIONS
-    : DEFAULT_QUALITY_OPTIONS.filter((opt) => !opt.isAudio);
+  const options = DEFAULT_QUALITY_OPTIONS;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SELECT QUALITY / FORMAT</Text>
+      <Text style={styles.title}>SELECT VIDEO QUALITY</Text>
       <View style={styles.optionsList}>
         {options.map((option) => {
           const isSelected = selectedId === option.id;
@@ -52,7 +48,7 @@ export const QualitySelector: React.FC<QualitySelectorProps> = ({
             >
               <View style={styles.optionLeft}>
                 <Ionicons
-                  name={option.isAudio ? 'musical-notes' : 'videocam'}
+                  name="videocam"
                   size={18}
                   color={isSelected ? colors.glowViolet : colors.textMuted}
                   style={styles.optionIcon}
@@ -130,7 +126,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSubtle,
   },
   optionPillSelected: {
-    backgroundColor: '#1E1430',
+    backgroundColor: '#0C1A29',
     borderColor: colors.accent,
   },
   optionLeft: {

@@ -32,8 +32,51 @@ const INJECTED_EXTRACTOR_JS = `
       type: 'MEDIA_EXTRACTED',
       url: mediaUrl,
       thumbnail: thumbUrl || '',
-      title: pageTitle || document.title || 'Social Media'
+      title: pageTitle || document.title || 'Media'
     }));
+  }
+
+  // Hook HTMLMediaElement src setter for instant 0ms capture
+  try {
+    var origMediaSrc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'src');
+    if (origMediaSrc && origMediaSrc.set) {
+      Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+        set: function(v) {
+          if (v && typeof v === 'string' && v.indexOf('http') === 0 && v.indexOf('blob:') !== 0) {
+            report(v, this.poster);
+          }
+          return origMediaSrc.set.call(this, v);
+        },
+        get: origMediaSrc.get
+      });
+    }
+  } catch (e) {}
+
+  // Hook HTMLSourceElement src setter
+  try {
+    var origSourceSrc = Object.getOwnPropertyDescriptor(HTMLSourceElement.prototype, 'src');
+    if (origSourceSrc && origSourceSrc.set) {
+      Object.defineProperty(HTMLSourceElement.prototype, 'src', {
+        set: function(v) {
+          if (v && typeof v === 'string' && v.indexOf('http') === 0 && v.indexOf('blob:') !== 0) {
+            report(v);
+          }
+          return origSourceSrc.set.call(this, v);
+        },
+        get: origSourceSrc.get
+      });
+    }
+  } catch (e) {}
+
+  function pokeVideos() {
+    var vids = document.querySelectorAll('video');
+    for (var i = 0; i < vids.length; i++) {
+      var v = vids[i];
+      if (!v.currentSrc && !v.src) {
+        v.muted = true;
+        if (v.play) v.play().catch(function(){});
+      }
+    }
   }
 
   function scan() {
@@ -95,9 +138,10 @@ const INJECTED_EXTRACTOR_JS = `
 
   scan();
   var poller = setInterval(function() {
+    pokeVideos();
     if (scan()) clearInterval(poller);
-  }, 250);
-  setTimeout(function() { clearInterval(poller); }, 9000);
+  }, 100);
+  setTimeout(function() { clearInterval(poller); }, 6000);
 })();
 true;
 `;
@@ -120,30 +164,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Hidden In-App WebKit extractor state
   const [headlessUrl, setHeadlessUrl] = useState<string | null>(null);
   const headlessResolverRef = useRef<((media: { url: string; title?: string; thumbnail?: string } | null) => void) | null>(null);
-  const headlessTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const headlessTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const extractWithHeadlessWebView = (rawUrl: string): Promise<{ url: string; title?: string; thumbnail?: string } | null> => {
     return new Promise((resolve) => {
       if (headlessTimeoutRef.current) clearTimeout(headlessTimeoutRef.current);
 
       let target = rawUrl;
-      const scMatch = rawUrl.match(/instagram\.com\/(?:p|reel|tv|stories\/[^/]+)\/([A-Za-z0-9_-]+)/i);
-      if (scMatch) {
+      const clean = rawUrl.split('?')[0];
+      const igMatch =
+        clean.match(/(?:instagram\.com|instagr\.am)\/(?:[A-Za-z0-9_.]+\/)?(?:p|reel|reels|tv|stories\/[^/]+|share\/(?:reel|p))\/([A-Za-z0-9_-]+)/i) ||
+        clean.match(/(?:p|reel|reels)\/([A-Za-z0-9_-]+)/i);
+
+      if (igMatch && igMatch[1]) {
         // Load the public captioned embed page which contains the HTML5 video player without login walls
-        target = `https://www.instagram.com/p/${scMatch[1]}/embed/captioned/`;
+        target = `https://www.instagram.com/p/${igMatch[1]}/embed/captioned/`;
       }
 
       headlessResolverRef.current = resolve;
       setHeadlessUrl(target);
 
-      // Max 10s timeout
+      // Fast 6s timeout
       headlessTimeoutRef.current = setTimeout(() => {
         setHeadlessUrl(null);
         if (headlessResolverRef.current) {
           headlessResolverRef.current(null);
           headlessResolverRef.current = null;
         }
-      }, 10000);
+      }, 6000);
     });
   };
 
@@ -186,38 +234,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     try {
       let resolveData: any = null;
+      const isInstagram = /instagram\.com|instagr\.am/i.test(url);
+      const isReddit = /reddit\.com|redd\.it/i.test(url);
+      const isPinterest = /pinterest\.|pin\.it/i.test(url);
 
-      // 1. First attempt standard direct network resolver
-      try {
-        resolveData = await resolveCobaltMedia(url, { videoQuality: 'max' });
-      } catch (directErr: any) {
-        // 2. If direct network resolver failed, activate hidden In-App WebKit extractor (like official Black Hole)
-        const isInstagram = url.toLowerCase().includes('instagram.com');
-        const isReddit = url.toLowerCase().includes('reddit.com') || url.toLowerCase().includes('redd.it');
-        const isPinterest = url.toLowerCase().includes('pinterest') || url.toLowerCase().includes('pin.it');
-        if (isInstagram || isReddit || isPinterest) {
-          const platformKey = isInstagram ? 'instagram' : isReddit ? 'reddit' : 'pinterest';
-          console.log(`[Black Hole] Activating in-app WebKit extractor for ${platformKey}...`);
-          const webResult = await extractWithHeadlessWebView(url);
+      if (isInstagram || isReddit || isPinterest) {
+        const platformKey = isInstagram ? 'instagram' : isReddit ? 'reddit' : 'pinterest';
+
+        // 1. Launch in-app WebKit extractor immediately
+        const webkitTask = extractWithHeadlessWebView(url).then((webResult) => {
           if (webResult && webResult.url) {
             const isVideo = webResult.url.includes('.mp4') || !webResult.url.match(/\.(jpe?g|png|webp)/i);
-            resolveData = {
-              status: 'redirect',
+            return {
+              status: 'redirect' as const,
               url: webResult.url,
-              filename: `${platformKey}_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
-              title: webResult.title || `${platformKey.charAt(0).toUpperCase() + platformKey.slice(1)} Media`,
+              filename: `media_${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
+              title: webResult.title || 'Media File',
               thumbnail: webResult.thumbnail,
-              platform: platformKey,
+              platform: platformKey as any,
               originalUrl: url,
               availableQualities: ['Original Quality'],
               audioOnlyAvailable: false,
             };
           }
-        }
+          return null;
+        });
 
-        if (!resolveData) {
+        // 2. Launch direct network resolver in parallel
+        const directTask = resolveCobaltMedia(url, { videoQuality: 'max' }).catch(() => null);
+
+        // 3. Race: whichever gets media first wins!
+        const raceWinner = await Promise.race([
+          webkitTask.then((res) => (res ? res : new Promise<never>(() => {}))),
+          directTask.then((res) => (res ? res : new Promise<never>(() => {}))),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 5500)),
+        ]);
+
+        resolveData = raceWinner || (await webkitTask) || (await directTask);
+      } else {
+        // Standard fast direct resolver for TikTok, Twitter, Facebook, etc.
+        try {
+          resolveData = await resolveCobaltMedia(url, { videoQuality: 'max' });
+        } catch (directErr: any) {
           throw directErr;
         }
+      }
+
+      if (!resolveData) {
+        throw new Error('No downloadable media stream found for this link.');
       }
 
       // 3. Select highest quality media URL directly
@@ -289,7 +353,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <Text style={styles.historyButtonText}>HISTORIQUE</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>CLICKI</Text>
+        <View style={styles.headerLogoContainer}>
+          <BlackHoleVisual size={22} showLabel={false} disabled />
+          <Text style={styles.headerTitle}>CLICKI</Text>
+        </View>
 
         <TouchableOpacity
           style={styles.iconButton}
@@ -347,10 +414,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Bottom Platform Badges */}
+      {/* Bottom Bar */}
       <View style={styles.bottomBar}>
         <Text style={styles.supportedText}>
-          TIKTOK • INSTAGRAM • YOUTUBE • X • FACEBOOK • REDDIT • SNAPCHAT • PINTEREST
+          UNIVERSAL MEDIA ARCHIVE
         </Text>
       </View>
 
@@ -375,7 +442,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
             <TextInput
               style={styles.input}
-              placeholder="https://www.tiktok.com/@..."
+              placeholder="Paste media or video link..."
               placeholderTextColor={colors.textMuted}
               value={manualUrl}
               onChangeText={setManualUrl}
@@ -472,6 +539,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.5,
+  },
+  headerLogoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     color: colors.textSecondary,

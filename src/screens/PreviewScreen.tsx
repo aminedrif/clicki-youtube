@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/types';
 import { PlatformBadge } from '../components/PlatformBadge';
 import { QualitySelector } from '../components/QualitySelector';
+import { BlackHoleVisual } from '../components/BlackHoleVisual';
 import { downloadRepository } from '../database/downloadRepository';
 import { triggerBrowserFileDownload } from '../services/fileService';
 import { colors } from '../theme/colors';
@@ -163,14 +164,13 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({
           selectedId={selectedQuality}
           onSelect={(option) => {
             setSelectedQuality(option.quality);
-            setSelectedFormat(option.format);
+            setSelectedFormat('mp4');
           }}
-          audioOnlyAvailable={resolveData.audioOnlyAvailable}
         />
 
-        {/* Download Action CTA */}
+        {/* Download Action CTA with Animated Black Hole Logo */}
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           style={styles.downloadButton}
           onPress={handleStartDownload}
           {...(Platform.OS === 'web' && currentTargetUrl
@@ -182,8 +182,11 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({
               }
             : {})}
         >
-          <Ionicons name="arrow-down-circle" size={22} color="#000000" />
+          <View style={styles.downloadButtonHoleBadge}>
+            <BlackHoleVisual size={34} showLabel={false} disabled />
+          </View>
           <Text style={styles.downloadButtonText}>START DOWNLOAD</Text>
+          <Ionicons name="arrow-down" size={18} color={colors.accent} />
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -321,23 +324,36 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   downloadButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 18,
+    backgroundColor: '#070C18',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 10,
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    gap: 12,
+    marginTop: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.45)',
+    shadowColor: '#00D2FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  downloadButtonHoleBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
   },
   downloadButtonText: {
-    color: '#000000',
+    color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
 });

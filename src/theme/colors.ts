@@ -1,36 +1,38 @@
 export const colors = {
   // Pure OLED blacks & deep space tones
   background: '#000000',
-  surface: '#0A0B0E',
-  surfaceCard: '#12141A',
-  surfaceElevated: '#1A1D24',
-  border: '#232733',
-  borderSubtle: '#181A20',
+  surface: '#05070A',
+  surfaceCard: '#0B0F17',
+  surfaceElevated: '#111827',
+  border: '#1E293B',
+  borderSubtle: '#0F172A',
 
-  // Singularity / Event horizon accents
+  // Singularity / Event horizon accents (Sky Blue / Bleu Ciel)
   singularityCore: '#000000',
-  accretionInner: '#1E1035',
-  accretionMid: '#3D1C68',
-  accretionOuter: '#7928CA',
-  glowPurple: '#9333EA',
-  glowCyan: '#06B6D4',
-  glowViolet: '#A855F7',
+  accretionInner: '#032840',
+  accretionMid: '#0284C7',
+  accretionOuter: '#38BDF8',
+  glowPurple: '#0284C7',
+  glowCyan: '#38BDF8',
+  glowSkyBlue: '#00D2FF',
+  glowViolet: '#38BDF8',
   glowWhite: '#FFFFFF',
 
   // Typography
   textPrimary: '#FFFFFF',
-  textSecondary: '#9CA3AF',
-  textMuted: '#6B7280',
-  textDisabled: '#4B5563',
+  textSecondary: '#94A3B8',
+  textMuted: '#64748B',
+  textDisabled: '#475569',
 
   // Actions & States
   primary: '#FFFFFF',
   primaryText: '#000000',
-  accent: '#A855F7',
+  accent: '#38BDF8', // Radiant Bleu Ciel
+  accentGlow: 'rgba(56, 189, 248, 0.35)',
   success: '#10B981',
   warning: '#F59E0B',
   danger: '#EF4444',
-  info: '#3B82F6',
+  info: '#38BDF8',
 
   // Social platforms
   platforms: {
@@ -42,7 +44,7 @@ export const colors = {
     pinterest: '#E60023',
     reddit: '#FF4500',
     snapchat: '#FFFC00',
-    unknown: '#6B7280',
+    unknown: '#64748B',
   },
 } as const;
 

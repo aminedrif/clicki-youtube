@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Alert,
   Platform,
 } from 'react-native';
@@ -14,9 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import * as Sharing from 'expo-sharing';
 import { RootStackParamList } from '../navigation/types';
-import { PlatformBadge } from '../components/PlatformBadge';
 import { downloadRepository } from '../database/downloadRepository';
-import { deleteLocalFile, formatBytes, triggerBrowserFileDownload } from '../services/fileService';
+import { deleteLocalFile, triggerBrowserFileDownload } from '../services/fileService';
 import { colors } from '../theme/colors';
 
 type PlayerScreenProps = NativeStackScreenProps<RootStackParamList, 'Player'>;
@@ -38,8 +36,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     const cleanTitle = (downloadRecord.title || 'video')
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .substring(0, 50);
-    const ext = downloadRecord.format.toLowerCase().includes('mp3') ? '.mp3' : '.mp4';
-    const filename = `${cleanTitle}${ext}`;
+    const filename = `${cleanTitle}.mp4`;
 
     if (Platform.OS === 'web') {
       triggerBrowserFileDownload(url, filename);
@@ -63,8 +60,8 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Download',
-      'Remove this video from your device and history?',
+      'Delete Video',
+      'Remove this video from your device?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -84,8 +81,6 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
     );
   };
 
-  const formattedDate = new Date(downloadRecord.downloaded_at).toLocaleString();
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -97,7 +92,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         >
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>MEDIA PLAYER</Text>
+        <Text style={styles.headerTitle}>HISTORIQUE</Text>
         <TouchableOpacity
           style={styles.backButton}
           onPress={Platform.OS === 'web' ? handleSaveToDevice : handleShare}
@@ -111,7 +106,7 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.content}>
         {/* Native Video Playback View */}
         <View style={styles.videoWrapper}>
           <VideoView
@@ -122,76 +117,38 @@ export const PlayerScreen: React.FC<PlayerScreenProps> = ({
           />
         </View>
 
-        {/* Media Metadata & Action Details */}
-        <View style={styles.detailsCard}>
-          <View style={styles.metaTopRow}>
-            <PlatformBadge platform={downloadRecord.platform} size="medium" />
-            <Text style={styles.sizePill}>{formatBytes(downloadRecord.file_size)}</Text>
-          </View>
-
-          <Text style={styles.videoTitle}>{downloadRecord.title}</Text>
-
-          <View style={styles.metaGrid}>
-            <View style={styles.metaItem}>
-              <Text style={styles.metaItemLabel}>FORMAT / QUALITY</Text>
-              <Text style={styles.metaItemValue}>
-                {downloadRecord.format.toUpperCase()} • {downloadRecord.quality}
-              </Text>
-            </View>
-
-            <View style={styles.metaItem}>
-              <Text style={styles.metaItemLabel}>DOWNLOADED AT</Text>
-              <Text style={styles.metaItemValue}>{formattedDate}</Text>
-            </View>
-
-            <View style={styles.metaItem}>
-              <Text style={styles.metaItemLabel}>ORIGINAL SOURCE LINK</Text>
-              <Text style={styles.metaItemLink} numberOfLines={2} selectable>
-                {downloadRecord.original_url}
-              </Text>
-            </View>
-
-            <View style={styles.metaItem}>
-              <Text style={styles.metaItemLabel}>LOCAL FILE PATH</Text>
-              <Text style={styles.metaItemPath} numberOfLines={1} selectable>
-                {downloadRecord.file_path}
-              </Text>
-            </View>
-          </View>
-
-          {/* Actions */}
-          <View style={styles.actionsRow}>
-            {Platform.OS === 'web' ? (
-              <TouchableOpacity
-                style={styles.saveActionBtn}
-                onPress={handleSaveToDevice}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="download-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.saveActionText}>SAVE FILE TO PC</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.shareActionBtn}
-                onPress={handleShare}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="share-social" size={18} color="#000000" />
-                <Text style={styles.shareActionText}>SHARE FILE</Text>
-              </TouchableOpacity>
-            )}
-
+        {/* Actions: ONLY Share and Delete */}
+        <View style={styles.actionsContainer}>
+          {Platform.OS === 'web' ? (
             <TouchableOpacity
-              style={styles.deleteActionBtn}
-              onPress={handleDelete}
+              style={styles.shareActionBtn}
+              onPress={handleSaveToDevice}
               activeOpacity={0.8}
             >
-              <Ionicons name="trash-outline" size={18} color={colors.danger} />
-              <Text style={styles.deleteActionText}>DELETE</Text>
+              <Ionicons name="download-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.shareActionText}>SAVE FILE TO PC</Text>
             </TouchableOpacity>
-          </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.shareActionBtn}
+              onPress={handleShare}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="share-social" size={20} color="#000000" />
+              <Text style={styles.shareActionText}>SHARE</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.deleteActionBtn}
+            onPress={handleDelete}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="trash-outline" size={20} color={colors.danger} />
+            <Text style={styles.deleteActionText}>DELETE</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -206,7 +163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
   },
@@ -215,117 +172,49 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 2,
   },
-  scrollArea: {
+  content: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
+    justifyContent: 'space-between',
+    paddingBottom: 36,
   },
   videoWrapper: {
     width: '100%',
-    height: 280,
+    flex: 1,
     backgroundColor: '#000000',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
+    justifyContent: 'center',
   },
   videoPlayer: {
     width: '100%',
     height: '100%',
   },
-  detailsCard: {
-    padding: 20,
-  },
-  metaTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sizePill: {
-    backgroundColor: colors.surfaceElevated,
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  videoTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  metaGrid: {
-    backgroundColor: colors.surfaceCard,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    gap: 16,
-    marginBottom: 24,
-  },
-  metaItem: {},
-  metaItemLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  metaItemValue: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  metaItemLink: {
-    color: colors.accent,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  metaItemPath: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  actionsRow: {
+  actionsContainer: {
     flexDirection: 'row',
     gap: 12,
-  },
-  saveActionBtn: {
-    flex: 2,
-    backgroundColor: colors.glowViolet,
-    borderRadius: 14,
-    paddingVertical: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  saveActionText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   shareActionBtn: {
     flex: 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 4,
   },
   shareActionText: {
     color: '#000000',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -335,15 +224,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.3)',
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   deleteActionText: {
     color: colors.danger,
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
