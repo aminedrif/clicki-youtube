@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "CLICKI",
+    "slug": "clicki",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.clicki.downloader",
+      "infoPlist": {
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "NSPhotoLibraryUsageDescription": "CLICKI needs access to save downloaded videos directly to your Photos.",
+        "NSPhotoLibraryAddUsageDescription": "CLICKI needs access to save downloaded videos directly to your Photos."
+      }
+    },
+    "android": {
+      "package": "com.clicki.downloader",
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VISUAL_USER_SELECTED"
+      ]
+    },
+    "plugins": [
+      "./plugins/withGoogleMobileAdsFix",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Save downloaded videos directly to your Photos.",
+          "savePhotosPermission": "Save downloaded videos directly to your Photos."
+        }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": true
+        }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ]
+    ],
+    "react-native-google-mobile-ads": {
+      "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+      "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d0cb64a4-8599-4256-9da3-f96db2b188ab"
+      }
+    }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
+  }
+}
+
