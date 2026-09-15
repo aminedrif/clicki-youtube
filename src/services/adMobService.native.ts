@@ -129,12 +129,43 @@ export function showInterstitialOnDownloadClick(): Promise<boolean> {
         hasShownDownloadAdThisSession = true;
         interstitialInstance.show();
         resolve(true);
-      } else {
-        if (interstitialInstance) {
-          interstitialInstance.load();
-        }
-        resolve(false);
+        return;
       }
+
+      if (interstitialInstance) {
+        let timer: any = null;
+        const GoogleMobileAds = require('react-native-google-mobile-ads');
+        const { AdEventType } = GoogleMobileAds;
+
+        const unsubscribe = interstitialInstance.addAdEventListener(
+          AdEventType.LOADED,
+          () => {
+            if (timer) clearTimeout(timer);
+            if (!hasShownDownloadAdThisSession && interstitialInstance) {
+              hasShownDownloadAdThisSession = true;
+              isInterstitialLoaded = true;
+              try {
+                interstitialInstance.show();
+                resolve(true);
+              } catch {
+                resolve(false);
+              }
+            }
+          }
+        );
+
+        timer = setTimeout(() => {
+          try {
+            unsubscribe();
+          } catch {}
+          resolve(false);
+        }, 2500);
+
+        interstitialInstance.load();
+        return;
+      }
+
+      resolve(false);
     } catch (e) {
       resolve(false);
     }

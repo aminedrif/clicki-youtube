@@ -34,6 +34,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
 
   const handleHolePress = async () => {
+    // Instantly show ad popup on button click (session-limited, works for both MP3 & MP4)
+    showInterstitialOnDownloadClick().catch(() => {});
+
     if (holeStatus === 'resolving' || holeStatus === 'downloading') return;
     setErrorMessage(null);
     clearFeedback();
