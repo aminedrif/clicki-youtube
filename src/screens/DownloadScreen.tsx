@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../navigation/types';
 import { useDownloadManager } from '../hooks/useDownloadManager';
 import { formatBytes, triggerBrowserFileDownload, shareFileAsync } from '../services/fileService';
-import { showInterstitialOnDownloadComplete } from '../services/adMobService';
+import { showInterstitialOnDownloadClick } from '../services/adMobService';
 import { BlackHoleVisual } from '../components/BlackHoleVisual';
 import { colors } from '../theme/colors';
 
@@ -26,20 +26,13 @@ export const DownloadScreen: React.FC<DownloadScreenProps> = ({
 }) => {
   const { resolveData, selectedQuality, selectedFormat, targetUrl } = route.params;
   const { downloadState, startDownload, cancelDownload } = useDownloadManager();
-  const [hasTriggeredAd, setHasTriggeredAd] = useState(false);
 
   useEffect(() => {
+    // Show interstitial popup if not shown yet in this session
+    showInterstitialOnDownloadClick().catch(() => {});
     // Initiate streaming download
     startDownload(resolveData, selectedQuality, selectedFormat, targetUrl);
   }, []);
-
-  // When download completes successfully, trigger interstitial test ad
-  useEffect(() => {
-    if (downloadState.completedRecord && !hasTriggeredAd) {
-      setHasTriggeredAd(true);
-      showInterstitialOnDownloadComplete().catch(() => {});
-    }
-  }, [downloadState.completedRecord, hasTriggeredAd]);
 
   const percentage = Math.min(100, Math.round(downloadState.progress * 100));
 

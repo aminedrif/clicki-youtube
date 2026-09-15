@@ -22,6 +22,11 @@ export function initAdMob() {
   // No-op on web
 }
 
+export function showInterstitialOnDownloadClick(): Promise<boolean> {
+  // No-op on web
+  return Promise.resolve(false);
+}
+
 export function showInterstitialOnDownloadComplete(): Promise<boolean> {
   // No-op on web
   return Promise.resolve(false);

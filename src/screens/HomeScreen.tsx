@@ -17,6 +17,7 @@ import { AppInfoModal } from '../components/AppInfoModal';
 import { useClipboardDetector } from '../hooks/useClipboardDetector';
 import { useDownloadManager } from '../hooks/useDownloadManager';
 import { resolveCobaltMedia } from '../api/cobaltClient';
+import { showInterstitialOnDownloadClick } from '../services/adMobService';
 import { colors } from '../theme/colors';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -66,6 +67,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       // 2. Immediately start downloading
       setHoleStatus('downloading');
+
+      // Trigger session-limited AdMob popup on download click
+      showInterstitialOnDownloadClick().catch(() => {});
 
       let savedRecord: any = null;
       try {

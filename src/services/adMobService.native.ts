@@ -90,6 +90,30 @@ export function initAdMob() {
   }
 }
 
+let hasShownDownloadAdThisSession = false;
+
+export function showInterstitialOnDownloadClick(): Promise<boolean> {
+  if (!adsEnabled) return Promise.resolve(false);
+  if (hasShownDownloadAdThisSession) return Promise.resolve(false);
+
+  return new Promise((resolve) => {
+    try {
+      if (interstitialInstance && isInterstitialLoaded) {
+        hasShownDownloadAdThisSession = true;
+        interstitialInstance.show();
+        resolve(true);
+      } else {
+        if (interstitialInstance) {
+          interstitialInstance.load();
+        }
+        resolve(false);
+      }
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
 export function showInterstitialOnDownloadComplete(): Promise<boolean> {
   if (!adsEnabled) return Promise.resolve(false);
 

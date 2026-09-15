@@ -18,6 +18,7 @@ import { QualitySelector } from '../components/QualitySelector';
 import { BlackHoleVisual } from '../components/BlackHoleVisual';
 import { downloadRepository } from '../database/downloadRepository';
 import { triggerBrowserFileDownload } from '../services/fileService';
+import { showInterstitialOnDownloadClick } from '../services/adMobService';
 import { colors } from '../theme/colors';
 
 type PreviewScreenProps = NativeStackScreenProps<RootStackParamList, 'Preview'>;
@@ -28,21 +29,15 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({
 }) => {
   const { resolveData } = route.params;
 
-  const [selectedQuality, setSelectedQuality] = useState<string>('1080');
-  const [selectedFormat, setSelectedFormat] = useState<string>('mp4');
+  const [selectedFormat, setSelectedFormat] = useState<'mp4' | 'mp3'>(
+    resolveData.audioOnlyAvailable ? 'mp3' : 'mp4'
+  );
+  const [selectedQuality, setSelectedQuality] = useState<string>(
+    resolveData.availableQualities && resolveData.availableQualities.length > 0
+      ? resolveData.availableQualities[0]
+      : 'Auto'
+  );
   const [selectedPickerItemIndex, setSelectedPickerItemIndex] = useState<number>(0);
-  const [isExistingDownload, setIsExistingDownload] = useState<boolean>(false);
-
-  // Check if link was already downloaded
-  useEffect(() => {
-    async function checkExisting() {
-      const existing = await downloadRepository.findByUrl(resolveData.originalUrl);
-      if (existing) {
-        setIsExistingDownload(true);
-      }
-    }
-    checkExisting();
-  }, [resolveData.originalUrl]);
 
   // Determine media URL to download
   const isPicker = resolveData.status === 'picker' && resolveData.picker && resolveData.picker.length > 0;
@@ -55,6 +50,7 @@ export const PreviewScreen: React.FC<PreviewScreenProps> = ({
     : resolveData.thumbnail;
 
   const handleStartDownload = () => {
+    showInterstitialOnDownloadClick().catch(() => {});
     navigateToDownload();
   };
 
