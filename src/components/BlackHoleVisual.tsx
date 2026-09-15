@@ -16,7 +16,6 @@ import Animated, {
   Easing,
   interpolate,
 } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -129,17 +128,6 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
     };
   });
 
-  // Pulsing atmospheric sky-blue halo
-  const animatedGlowStyle = useAnimatedStyle(() => {
-    const glowScale = interpolate(pulseAnim.value, [0, 1], [0.92, 1.25]);
-    const glowOpacity = interpolate(pulseAnim.value, [0, 1], [0.35, 0.7]);
-
-    return {
-      opacity: glowOpacity,
-      transform: [{ scale: glowScale }],
-    };
-  });
-
   // Inward ingestion ring during suction
   const animatedInwardRingStyle = useAnimatedStyle(() => {
     const ringScale = interpolate(suckAnim.value, [0, 1], [1.35, 0.1]);
@@ -155,17 +143,6 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
   const isError = status === 'error';
   const isWorking = status === 'resolving' || status === 'downloading';
 
-  let glowColors: [string, string, ...string[]] = [
-    'rgba(56, 189, 248, 0.45)',
-    'rgba(0, 210, 255, 0.15)',
-    'transparent',
-  ];
-  if (isSuccess) {
-    glowColors = ['rgba(16, 185, 129, 0.5)', 'rgba(6, 182, 212, 0.15)', 'transparent'];
-  } else if (isError) {
-    glowColors = ['rgba(239, 68, 68, 0.5)', 'rgba(185, 28, 28, 0.15)', 'transparent'];
-  }
-
   let displayText = label;
   if (!displayText) {
     if (status === 'resolving') displayText = `INGESTING${dots}`;
@@ -177,27 +154,6 @@ export const BlackHoleVisual: React.FC<BlackHoleVisualProps> = ({
 
   const visualContent = (
     <View style={[styles.visualContainer, { width: holeSize, height: holeSize }]}>
-      {/* Outer ambient sky-blue gravitational halo */}
-      {shouldShowGlow && (
-        <Animated.View
-          style={[
-            styles.ambientGlow,
-            {
-              width: holeSize * 1.18,
-              height: holeSize * 1.18,
-              borderRadius: (holeSize * 1.18) / 2,
-            },
-            animatedGlowStyle,
-          ]}
-          pointerEvents="none"
-        >
-          <LinearGradient
-            colors={glowColors}
-            style={{ width: '100%', height: '100%', borderRadius: (holeSize * 1.18) / 2 }}
-          />
-        </Animated.View>
-      )}
-
       {/* The EXACT SAME Black Hole Logo Image with Continuous Rotation & Breathing Scale */}
       <Animated.Image
         source={LOGO_SOURCE}
@@ -321,8 +277,8 @@ const styles = StyleSheet.create({
   inwardRing: {
     position: 'absolute',
     borderWidth: 2,
-    borderColor: '#38BDF8',
-    shadowColor: '#00D2FF',
+    borderColor: '#EF4444',
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.95,
     shadowRadius: 14,
@@ -333,9 +289,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.28)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     paddingHorizontal: 6,
-    shadowColor: '#00D2FF',
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -353,7 +309,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   labelWorking: {
-    color: '#38BDF8',
+    color: '#EF4444',
     fontWeight: '700',
     letterSpacing: 2,
   },

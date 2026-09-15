@@ -7,6 +7,8 @@ import { getDatabase } from './src/database/db';
 import { initAdMob } from './src/services/adMobService';
 import { colors } from './src/theme/colors';
 
+import { AudioPlayerProvider } from './src/context/AudioPlayerContext';
+
 export default function App() {
   const [isReady, setIsReady] = useState(false);
 
@@ -15,7 +17,7 @@ export default function App() {
       try {
         // Initialize SQLite database and tables
         await getDatabase();
-        // Initialize AdMob test units
+        // Initialize AdMob
         initAdMob();
       } catch (e) {
         console.warn('App initialization error:', e);
@@ -30,7 +32,7 @@ export default function App() {
   if (!isReady) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.glowViolet} />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
@@ -38,7 +40,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <AppNavigator />
+      <AudioPlayerProvider>
+        <AppNavigator />
+      </AudioPlayerProvider>
     </SafeAreaProvider>
   );
 }

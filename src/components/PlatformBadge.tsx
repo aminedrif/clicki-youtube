@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SupportedPlatform } from '../database/types';
 import { getPlatformColor, getPlatformDisplayName, getPlatformIcon } from '../services/platformDetector';
+import { colors } from '../theme/colors';
 
 interface PlatformBadgeProps {
   platform?: SupportedPlatform;
@@ -16,9 +17,9 @@ export const PlatformBadge: React.FC<PlatformBadgeProps> = ({
   size = 'medium',
   showLabel = true,
 }) => {
-  const color = '#38BDF8';
-  const name = 'VIDEO';
-  const iconName = 'videocam-outline';
+  const color = colors.accent;
+  const name = format ? format.toUpperCase() : 'YOUTUBE';
+  const iconName = format === 'mp3' ? 'musical-notes-outline' : 'logo-youtube';
 
   const iconSize = size === 'small' ? 12 : size === 'large' ? 18 : 14;
   const paddingH = size === 'small' ? 6 : size === 'large' ? 12 : 8;

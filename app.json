@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CLICKI",
-    "slug": "clicki",
+    "name": "CLICKI Youtube",
+    "slug": "clicki-youtube",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -47,7 +47,11 @@
         "INTERNET",
         "READ_MEDIA_VIDEO",
         "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VISUAL_USER_SELECTED"
+        "READ_MEDIA_VISUAL_USER_SELECTED",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
@@ -68,7 +72,7 @@
       [
         "expo-video",
         {
-          "supportsBackgroundPlayback": false,
+          "supportsBackgroundPlayback": true,
           "supportsPictureInPicture": true
         }
       ],

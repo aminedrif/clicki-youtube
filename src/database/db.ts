@@ -26,6 +26,25 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     );
     CREATE INDEX IF NOT EXISTS idx_downloads_downloaded_at ON downloads(downloaded_at DESC);
     CREATE INDEX IF NOT EXISTS idx_downloads_url ON downloads(original_url);
+    CREATE INDEX IF NOT EXISTS idx_downloads_format ON downloads(format);
+
+    CREATE TABLE IF NOT EXISTS playlists (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      cover_url TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_playlists_created_at ON playlists(created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS playlist_items (
+      id TEXT PRIMARY KEY NOT NULL,
+      playlist_id TEXT NOT NULL,
+      download_id TEXT NOT NULL,
+      added_at INTEGER NOT NULL,
+      UNIQUE(playlist_id, download_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_playlist_items_playlist ON playlist_items(playlist_id);
+    CREATE INDEX IF NOT EXISTS idx_playlist_items_download ON playlist_items(download_id);
   `);
 
   databaseInstance = db;

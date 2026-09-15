@@ -30,7 +30,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
   const loadHistory = useCallback(async () => {
     setIsLoading(true);
     try {
-      const records = await downloadRepository.getAll();
+      const records = await downloadRepository.getVideosOnly();
       setDownloads(records);
     } catch (err) {
       console.warn('Failed to load history:', err);
@@ -83,13 +83,23 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ navigation }) => {
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>HISTORIQUE</Text>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={loadHistory}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.playlistHeaderBtn}
+            onPress={() => navigation.navigate('Playlist')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="musical-notes" size={14} color={colors.accent} />
+            <Text style={styles.playlistHeaderBtnText}>PLAYLIST</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={loadHistory}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Media History List */}
@@ -137,6 +147,28 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 4,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  playlistHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  playlistHeaderBtnText: {
+    color: colors.accent,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   headerTitle: {
     color: colors.textSecondary,

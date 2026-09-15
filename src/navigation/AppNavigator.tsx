@@ -6,6 +6,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { PreviewScreen } from '../screens/PreviewScreen';
 import { DownloadScreen } from '../screens/DownloadScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
+import { PlaylistScreen } from '../screens/PlaylistScreen';
 import { PlayerScreen } from '../screens/PlayerScreen';
 import { colors } from '../theme/colors';
 
@@ -37,6 +38,11 @@ export const AppNavigator: React.FC = () => {
         }}
       >
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen
+          name="Playlist"
+          component={PlaylistScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
         <Stack.Screen
           name="Preview"
           component={PreviewScreen}

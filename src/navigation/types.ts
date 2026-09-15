@@ -34,6 +34,7 @@ export type RootStackParamList = {
     targetUrl: string;
   };
   History: undefined;
+  Playlist: undefined;
   Player: {
     downloadRecord: DownloadRecord;
   };

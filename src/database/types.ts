@@ -23,3 +23,18 @@ export interface DownloadRecord {
 }
 
 export type NewDownloadRecord = Omit<DownloadRecord, 'id'> & { id?: string };
+
+export interface PlaylistRecord {
+  id: string;
+  name: string;
+  created_at: number;
+  cover_url: string | null;
+  track_count?: number;
+}
+
+export interface PlaylistItemRecord {
+  id: string;
+  playlist_id: string;
+  download_id: string;
+  added_at: number;
+}

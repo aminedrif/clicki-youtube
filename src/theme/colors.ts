@@ -7,15 +7,15 @@ export const colors = {
   border: '#1E293B',
   borderSubtle: '#0F172A',
 
-  // Singularity / Event horizon accents (Sky Blue / Bleu Ciel)
+  // Singularity / Event horizon accents (Crimson & YouTube Red)
   singularityCore: '#000000',
-  accretionInner: '#032840',
-  accretionMid: '#0284C7',
-  accretionOuter: '#38BDF8',
-  glowPurple: '#0284C7',
-  glowCyan: '#38BDF8',
-  glowSkyBlue: '#00D2FF',
-  glowViolet: '#38BDF8',
+  accretionInner: '#3B0707',
+  accretionMid: '#B91C1C',
+  accretionOuter: '#EF4444',
+  glowPurple: '#DC2626',
+  glowCyan: '#F87171',
+  glowSkyBlue: '#EF4444',
+  glowViolet: '#DC2626',
   glowWhite: '#FFFFFF',
 
   // Typography
@@ -27,12 +27,12 @@ export const colors = {
   // Actions & States
   primary: '#FFFFFF',
   primaryText: '#000000',
-  accent: '#38BDF8', // Radiant Bleu Ciel
-  accentGlow: 'rgba(56, 189, 248, 0.35)',
+  accent: '#EF4444', // Radiant YouTube Red
+  accentGlow: 'rgba(239, 68, 68, 0.4)',
   success: '#10B981',
   warning: '#F59E0B',
   danger: '#EF4444',
-  info: '#38BDF8',
+  info: '#EF4444',
 
   // Social platforms
   platforms: {

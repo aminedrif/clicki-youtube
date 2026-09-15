@@ -8,16 +8,9 @@ export interface PlatformInfo {
   isValid: boolean;
 }
 
-const PLATFORM_PATTERNS: { [key in Exclude<SupportedPlatform, 'unknown'>]: RegExp } = {
-  tiktok: /(?:https?:\/\/)?(?:www\.|vm\.|vt\.|m\.)?tiktok\.com\/[@A-Za-z0-9_.\/]+/i,
-  instagram: /(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|reel|tv|stories)\/[A-Za-z0-9_-]+/i,
-  youtube: /(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|v\/)|youtu\.be\/)[A-Za-z0-9_-]+/i,
-  twitter: /(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/[A-Za-z0-9_]+\/status\/[0-9]+/i,
-  facebook: /(?:https?:\/\/)?(?:www\.|m\.|web\.)?(?:facebook\.com|fb\.watch|fb\.gg)/i,
-  pinterest: /(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)*(?:pinterest\.[a-z.]+|pin\.it)\/[A-Za-z0-9_.\/-]+/i,
-  reddit: /(?:https?:\/\/)?(?:[a-zA-Z0-9-]+\.)*(?:reddit\.com|redd\.it)\/[A-Za-z0-9_.\/-]+/i,
-  snapchat: /(?:https?:\/\/)?(?:www\.)?snapchat\.com\/(?:spotlight|add|t)\/[A-Za-z0-9_-]+/i,
-};
+// Strictly YouTube regex covering standard watch URLs, youtu.be shortlinks, shorts, embeds, mobile, and music
+export const YOUTUBE_REGEX =
+  /(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i;
 
 const URL_EXTRACT_REGEX = /(https?:\/\/[^\s]+)/gi;
 
@@ -30,54 +23,46 @@ export function extractUrl(text: string | null | undefined): string | null {
   return null;
 }
 
+export function extractYouTubeVideoId(url: string): string | null {
+  const match = url.match(YOUTUBE_REGEX);
+  return match && match[1] ? match[1] : null;
+}
+
 export function detectPlatform(url: string): PlatformInfo {
   const cleanUrl = url.trim();
 
-  // Explicitly reject YouTube per policy
-  if (PLATFORM_PATTERNS.youtube.test(cleanUrl)) {
+  // ONLY YouTube is supported in CLICKI Youtube
+  if (YOUTUBE_REGEX.test(cleanUrl)) {
     return {
       platform: 'youtube',
-      displayName: 'Media',
-      color: '#EF4444',
-      iconName: 'alert-circle-outline',
-      isValid: false,
+      displayName: 'YouTube',
+      color: '#FF0000',
+      iconName: 'logo-youtube',
+      isValid: true,
     };
   }
 
-  for (const [key, regex] of Object.entries(PLATFORM_PATTERNS) as [
-    Exclude<SupportedPlatform, 'unknown'>,
-    RegExp
-  ][]) {
-    if (key !== 'youtube' && regex.test(cleanUrl)) {
-      return {
-        platform: key,
-        displayName: 'Media',
-        color: getPlatformColor(key),
-        iconName: getPlatformIcon(key),
-        isValid: true,
-      };
-    }
-  }
-
+  // All other platforms are explicitly rejected
   return {
     platform: 'unknown',
-    displayName: 'Link',
+    displayName: 'Unsupported Link',
     color: '#6B7280',
-    iconName: 'link-outline',
+    iconName: 'alert-circle-outline',
     isValid: false,
   };
 }
 
 export function getPlatformDisplayName(platform: SupportedPlatform): string {
-  if (platform === 'youtube') return 'YouTube (Unsupported)';
-  return 'Media';
+  if (platform === 'youtube') return 'YouTube';
+  return 'Unsupported';
 }
 
 export function getPlatformColor(platform: SupportedPlatform): string {
-  if (platform === 'youtube') return '#EF4444';
-  return '#A855F7';
+  if (platform === 'youtube') return '#FF0000';
+  return '#64748B';
 }
 
 export function getPlatformIcon(platform: SupportedPlatform): string {
-  return 'videocam-outline';
+  if (platform === 'youtube') return 'logo-youtube';
+  return 'help-circle-outline';
 }

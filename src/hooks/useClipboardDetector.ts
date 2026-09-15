@@ -43,19 +43,8 @@ export function useClipboardDetector() {
 
       const platformInfo = detectPlatform(extracted);
 
-      if (extracted.includes('youtube.com') || extracted.includes('youtu.be') || platformInfo.platform === 'youtube') {
-        const msg = 'YouTube downloads are not supported.';
-        setFeedbackMessage(msg);
-        return {
-          hasValidUrl: false,
-          url: extracted,
-          platformInfo,
-          message: msg,
-        };
-      }
-
-      if (!platformInfo.isValid) {
-        const msg = 'Unsupported link. Please copy a valid media link.';
+      if (!platformInfo.isValid || platformInfo.platform !== 'youtube') {
+        const msg = 'Only YouTube links are supported in CLICKI Youtube.';
         setFeedbackMessage(msg);
         return {
           hasValidUrl: false,
