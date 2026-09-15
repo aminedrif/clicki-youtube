@@ -60,31 +60,58 @@ export function initAdMob() {
     }
 
     const GoogleMobileAds = require('react-native-google-mobile-ads');
+    const mobileAds = GoogleMobileAds.default;
     const { InterstitialAd, AdEventType, TestIds } = GoogleMobileAds;
 
-    const adUnitId = __DEV__
-      ? TestIds.INTERSTITIAL
-      : (ADMOB_PROD_UNITS.interstitial || ADMOB_TEST_UNITS.interstitial || TestIds.INTERSTITIAL);
+    // Configure test devices including user's connected Samsung Galaxy A53
+    mobileAds()
+      .setRequestConfiguration({
+        testDeviceIdentifiers: ['6D52958B4338F70A48490A43881E314C', 'EMULATOR'],
+      })
+      .catch(() => {});
 
-    interstitialInstance = InterstitialAd.createForAdRequest(adUnitId, {
-      requestNonPersonalizedAdsOnly: true,
-    });
+    mobileAds()
+      .initialize()
+      .catch(() => {});
 
-    interstitialInstance.addAdEventListener(AdEventType.LOADED, () => {
-      isInterstitialLoaded = true;
-    });
+    const prodAdUnitId = ADMOB_PROD_UNITS.interstitial;
+    const testAdUnitId = ADMOB_TEST_UNITS.interstitial || TestIds.INTERSTITIAL;
+    const primaryAdUnit = __DEV__ ? testAdUnitId : (prodAdUnitId || testAdUnitId);
 
-    interstitialInstance.addAdEventListener(AdEventType.CLOSED, () => {
-      isInterstitialLoaded = false;
-      interstitialInstance.load();
-    });
+    const setupAdInstance = (unitId: string, isFallback = false) => {
+      try {
+        const instance = InterstitialAd.createForAdRequest(unitId, {
+          requestNonPersonalizedAdsOnly: true,
+        });
 
-    interstitialInstance.addAdEventListener(AdEventType.ERROR, (error: any) => {
-      isInterstitialLoaded = false;
-      console.log('AdMob Interstitial failed to load:', error);
-    });
+        instance.addAdEventListener(AdEventType.LOADED, () => {
+          isInterstitialLoaded = true;
+          interstitialInstance = instance;
+        });
 
-    interstitialInstance.load();
+        instance.addAdEventListener(AdEventType.CLOSED, () => {
+          isInterstitialLoaded = false;
+          instance.load();
+        });
+
+        instance.addAdEventListener(AdEventType.ERROR, (error: any) => {
+          isInterstitialLoaded = false;
+          console.log(`AdMob Interstitial (${unitId}) failed to load:`, error);
+          // If production ad unit fails (e.g. ad format mismatch or account pending), fallback to test ad unit
+          if (!isFallback && unitId !== testAdUnitId) {
+            console.log('Falling back to test Interstitial ad unit...');
+            setupAdInstance(testAdUnitId, true);
+          }
+        });
+
+        instance.load();
+        interstitialInstance = instance;
+      } catch (e) {
+        console.log('Error creating InterstitialAd instance:', e);
+      }
+    };
+
+    setupAdInstance(primaryAdUnit);
   } catch (e) {
     // Graceful fallback for non-native development
   }
