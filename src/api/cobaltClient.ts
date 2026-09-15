@@ -182,51 +182,37 @@ async function resolveYouTubeDirect(
             }
           }
 
-          // 2. Video Request (MP4)
-          if (!isAudio) {
-            // First check direct progressive H.264 MP4 formats from Google Video CDN
-            const directH264Formats = (parsed.video_formats || [])
-              .filter(
-                (f: any) =>
-                  f.url &&
-                  (f.mime?.includes('mp4') || f.itag === 18 || f.itag === 22 || f.label?.includes('MP4'))
-              )
-              .sort((a: any, b: any) => (b.quality || 0) - (a.quality || 0));
+          // 2. Video Request (MP4) - Always use proxy/conversion CDN endpoint to avoid Google 403 Forbidden
+          if (!isAudio && parsed.key && parsed.id) {
+            const targetQuality = options.videoQuality === '1080' ? '1080' : options.videoQuality === '360' ? '360' : '720';
+            const qualityOrder = [targetQuality, '720', '1080', '360'];
+            // Remove duplicates
+            const uniqueQualities = Array.from(new Set(qualityOrder));
 
-            if (directH264Formats.length > 0) {
-              const requestedQ = parseInt(options.videoQuality || '720', 10);
-              const exactMatch = directH264Formats.find((f: any) => f.quality === requestedQ);
-              streamUrl = (exactMatch || directH264Formats[0]).url;
-            }
-
-            // Fallback: SaveTube video download endpoint
-            if (!streamUrl && parsed.key && parsed.id) {
-              const targetQuality = options.videoQuality === '1080' ? '1080' : options.videoQuality === '360' ? '360' : '720';
-              for (const q of [targetQuality, '720', '360', '1080']) {
-                try {
-                  const dlController = new AbortController();
-                  const dlTimeout = setTimeout(() => dlController.abort(), 7000);
-                  const dlRes = await fetch(`https://${cdn}/download`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      id: parsed.id,
-                      downloadType: 'video',
-                      quality: q,
-                      key: parsed.key,
-                    }),
-                    signal: dlController.signal,
-                  });
-                  clearTimeout(dlTimeout);
-                  if (dlRes.ok) {
-                    const dlData = await dlRes.json();
-                    if (dlData.data?.downloadUrl) {
-                      streamUrl = dlData.data.downloadUrl;
-                      break;
-                    }
+            for (const q of uniqueQualities) {
+              try {
+                const dlController = new AbortController();
+                const dlTimeout = setTimeout(() => dlController.abort(), 8000);
+                const dlRes = await fetch(`https://${cdn}/download`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: parsed.id,
+                    downloadType: 'video',
+                    quality: q,
+                    key: parsed.key,
+                  }),
+                  signal: dlController.signal,
+                });
+                clearTimeout(dlTimeout);
+                if (dlRes.ok) {
+                  const dlData = await dlRes.json();
+                  if (dlData.data?.downloadUrl) {
+                    streamUrl = dlData.data.downloadUrl;
+                    break;
                   }
-                } catch {}
-              }
+                }
+              } catch {}
             }
           }
 

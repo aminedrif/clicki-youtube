@@ -1,6 +1,19 @@
 import { Platform } from 'react-native';
 
-// Google AdMob Test Ad Unit IDs
+// Google AdMob Production & Test Ad Unit IDs
+export const ADMOB_PROD_UNITS = {
+  interstitial: Platform.select({
+    ios: 'ca-app-pub-4277035637966209/9253050311',
+    android: 'ca-app-pub-4277035637966209/9253050311',
+    default: 'ca-app-pub-4277035637966209/9253050311',
+  }),
+  banner: Platform.select({
+    ios: 'ca-app-pub-4277035637966209/9253050311',
+    android: 'ca-app-pub-4277035637966209/9253050311',
+    default: 'ca-app-pub-4277035637966209/9253050311',
+  }),
+};
+
 export const ADMOB_TEST_UNITS = {
   interstitial: Platform.select({
     ios: 'ca-app-pub-3940256099942544/4411468910',
@@ -49,7 +62,9 @@ export function initAdMob() {
     const GoogleMobileAds = require('react-native-google-mobile-ads');
     const { InterstitialAd, AdEventType, TestIds } = GoogleMobileAds;
 
-    const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : (ADMOB_TEST_UNITS.interstitial || TestIds.INTERSTITIAL);
+    const adUnitId = __DEV__
+      ? TestIds.INTERSTITIAL
+      : (ADMOB_PROD_UNITS.interstitial || ADMOB_TEST_UNITS.interstitial || TestIds.INTERSTITIAL);
 
     interstitialInstance = InterstitialAd.createForAdRequest(adUnitId, {
       requestNonPersonalizedAdsOnly: true,
