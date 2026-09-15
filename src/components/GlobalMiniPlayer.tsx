@@ -31,11 +31,20 @@ export const GlobalMiniPlayer: React.FC<GlobalMiniPlayerProps> = ({
     nextTrack,
     prevTrack,
     dismissPlayer,
+    openFullPlayer,
   } = useAudioPlayer();
 
   if (!currentTrack) return null;
 
   const progress = duration > 0 ? Math.min(1, Math.max(0, playbackTime / duration)) : 0;
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      openFullPlayer();
+    }
+  };
 
   return (
     <View style={[styles.container, { bottom: bottomOffset }]}>
@@ -47,7 +56,7 @@ export const GlobalMiniPlayer: React.FC<GlobalMiniPlayerProps> = ({
       <TouchableOpacity
         style={styles.innerContent}
         activeOpacity={0.88}
-        onPress={onPress}
+        onPress={handlePress}
       >
         {/* Album Art */}
         <View style={styles.artContainer}>

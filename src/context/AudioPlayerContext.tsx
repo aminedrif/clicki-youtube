@@ -3,6 +3,9 @@ import { Platform, PermissionsAndroid, View } from 'react-native';
 import { useVideoPlayer, VideoPlayer, VideoView } from 'expo-video';
 import * as Haptics from 'expo-haptics';
 import { DownloadRecord } from '../database/types';
+import { FullAudioPlayerModal } from '../components/FullAudioPlayerModal';
+
+export type RepeatMode = 'off' | 'all' | 'one';
 
 export interface AudioPlayerContextType {
   player: VideoPlayer | null;
@@ -11,11 +14,24 @@ export interface AudioPlayerContextType {
   playbackTime: number;
   duration: number;
   queue: DownloadRecord[];
+  playbackSpeed: number;
+  repeatMode: RepeatMode;
+  isShuffle: boolean;
+  sleepTimerMinutes: number | null;
+  sleepTimerRemaining: number | null;
+  isFullPlayerVisible: boolean;
   playTrack: (track: DownloadRecord, newQueue?: DownloadRecord[]) => void;
   togglePlayPause: () => void;
   nextTrack: () => void;
   prevTrack: () => void;
   seekTo: (seconds: number) => void;
+  seekBy: (seconds: number) => void;
+  setPlaybackSpeed: (speed: number) => void;
+  toggleRepeatMode: () => void;
+  toggleShuffle: () => void;
+  setSleepTimer: (minutes: number | null) => void;
+  openFullPlayer: () => void;
+  closeFullPlayer: () => void;
   dismissPlayer: () => void;
 }
 
@@ -26,11 +42,24 @@ const AudioPlayerContext = createContext<AudioPlayerContextType>({
   playbackTime: 0,
   duration: 0,
   queue: [],
+  playbackSpeed: 1.0,
+  repeatMode: 'off',
+  isShuffle: false,
+  sleepTimerMinutes: null,
+  sleepTimerRemaining: null,
+  isFullPlayerVisible: false,
   playTrack: () => {},
   togglePlayPause: () => {},
   nextTrack: () => {},
   prevTrack: () => {},
   seekTo: () => {},
+  seekBy: () => {},
+  setPlaybackSpeed: () => {},
+  toggleRepeatMode: () => {},
+  toggleShuffle: () => {},
+  setSleepTimer: () => {},
+  openFullPlayer: () => {},
+  closeFullPlayer: () => {},
   dismissPlayer: () => {},
 });
 
@@ -42,6 +71,12 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [playbackTime, setPlaybackTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<DownloadRecord[]>([]);
+  const [playbackSpeed, setPlaybackSpeedState] = useState<number>(1.0);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('off');
+  const [isShuffle, setIsShuffle] = useState<boolean>(false);
+  const [sleepTimerMinutes, setSleepTimerMinutes] = useState<number | null>(null);
+  const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
+  const [isFullPlayerVisible, setIsFullPlayerVisible] = useState(false);
 
   // Keep refs for current state inside event listeners
   const currentTrackRef = useRef<DownloadRecord | null>(null);
@@ -50,8 +85,19 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const queueRef = useRef<DownloadRecord[]>([]);
   queueRef.current = queue;
 
+  const repeatModeRef = useRef<RepeatMode>('off');
+  repeatModeRef.current = repeatMode;
+
+  const isShuffleRef = useRef<boolean>(false);
+  isShuffleRef.current = isShuffle;
+
+  const sleepTimerMinutesRef = useRef<number | null>(null);
+  sleepTimerMinutesRef.current = sleepTimerMinutes;
+
+  const playbackSpeedRef = useRef<number>(1.0);
+  playbackSpeedRef.current = playbackSpeed;
+
   // Initialize expo-video player at the app root level
-  // This instance stays alive across screen navigations and in the background
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
     p.staysActiveInBackground = true;
@@ -78,13 +124,16 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     if (!player) return;
     try {
-      player.loop = false;
+      player.loop = repeatMode === 'one';
       player.staysActiveInBackground = true;
       player.showNowPlayingNotification = true;
+      try {
+        player.playbackRate = playbackSpeed;
+      } catch {}
     } catch (e) {
       console.warn('Error setting player background properties:', e);
     }
-  }, [player]);
+  }, [player, repeatMode, playbackSpeed]);
 
   const playTrack = useCallback(
     (track: DownloadRecord, newQueue?: DownloadRecord[]) => {
@@ -101,6 +150,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         try {
           player.staysActiveInBackground = true;
           player.showNowPlayingNotification = true;
+          player.loop = repeatModeRef.current === 'one';
 
           // Pass full metadata so Android MediaSession and lockscreen show the title & art
           player.replace({
@@ -112,6 +162,9 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             },
           });
           player.play();
+          try {
+            player.playbackRate = playbackSpeedRef.current;
+          } catch {}
           setIsPlaying(true);
         } catch (err) {
           console.warn('Error playing track in AudioPlayerContext:', err);
@@ -141,10 +194,35 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const q = queueRef.current;
     if (!cur || q.length === 0) return;
 
+    if (isShuffleRef.current && q.length > 1) {
+      const remaining = q.filter((t) => t.id !== cur.id);
+      const randomIndex = Math.floor(Math.random() * remaining.length);
+      playTrack(remaining[randomIndex]);
+      return;
+    }
+
     const currentIndex = q.findIndex((t) => t.id === cur.id);
-    const nextIndex = (currentIndex + 1) % q.length;
-    playTrack(q[nextIndex]);
-  }, [playTrack]);
+    if (currentIndex === -1) {
+      playTrack(q[0]);
+      return;
+    }
+
+    if (currentIndex === q.length - 1) {
+      if (repeatModeRef.current === 'off') {
+        if (player) {
+          try {
+            player.pause();
+          } catch {}
+        }
+        setIsPlaying(false);
+        return;
+      }
+      // Loop back to start in 'all'
+      playTrack(q[0]);
+    } else {
+      playTrack(q[currentIndex + 1]);
+    }
+  }, [playTrack, player]);
 
   const prevTrack = useCallback(() => {
     const cur = currentTrackRef.current;
@@ -154,6 +232,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (playbackTime > 3 && player) {
       try {
         player.currentTime = 0;
+        setPlaybackTime(0);
       } catch {
         player.seekBy(-playbackTime);
       }
@@ -178,6 +257,119 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     [player]
   );
 
+  const seekBy = useCallback(
+    (seconds: number) => {
+      if (!player) return;
+      try {
+        const cur = player.currentTime || playbackTime;
+        const dur = player.duration || duration;
+        const target = Math.max(0, Math.min(dur || 999999, cur + seconds));
+        player.currentTime = target;
+        setPlaybackTime(target);
+        try {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch {}
+      } catch (err) {
+        console.warn('SeekBy error:', err);
+      }
+    },
+    [player, playbackTime, duration]
+  );
+
+  const setPlaybackSpeed = useCallback(
+    (speed: number) => {
+      setPlaybackSpeedState(speed);
+      if (player) {
+        try {
+          player.playbackRate = speed;
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch (e) {
+          console.warn('Could not set playbackRate:', e);
+        }
+      }
+    },
+    [player]
+  );
+
+  const toggleRepeatMode = useCallback(() => {
+    setRepeatMode((prev) => {
+      let next: RepeatMode = 'off';
+      if (prev === 'off') next = 'all';
+      else if (prev === 'all') next = 'one';
+      else next = 'off';
+
+      if (player) {
+        player.loop = next === 'one';
+      }
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {}
+      return next;
+    });
+  }, [player]);
+
+  const toggleShuffle = useCallback(() => {
+    setIsShuffle((prev) => {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {}
+      return !prev;
+    });
+  }, []);
+
+  const setSleepTimer = useCallback(
+    (minutes: number | null) => {
+      setSleepTimerMinutes(minutes);
+      if (minutes === null) {
+        setSleepTimerRemaining(null);
+      } else if (minutes === -1) {
+        // End of current track
+        const remaining = Math.max(0, Math.round(duration - playbackTime));
+        setSleepTimerRemaining(remaining);
+      } else {
+        setSleepTimerRemaining(minutes * 60);
+      }
+      try {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch {}
+    },
+    [duration, playbackTime]
+  );
+
+  // Sleep timer countdown ticker
+  useEffect(() => {
+    if (sleepTimerRemaining === null) return;
+
+    if (sleepTimerRemaining <= 0) {
+      if (player) {
+        try {
+          player.pause();
+        } catch {}
+      }
+      setIsPlaying(false);
+      setSleepTimerMinutes(null);
+      setSleepTimerRemaining(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSleepTimerRemaining((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [sleepTimerRemaining, player]);
+
+  const openFullPlayer = useCallback(() => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+    setIsFullPlayerVisible(true);
+  }, []);
+
+  const closeFullPlayer = useCallback(() => {
+    setIsFullPlayerVisible(false);
+  }, []);
+
   const dismissPlayer = useCallback(() => {
     if (player) {
       try {
@@ -188,6 +380,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setCurrentTrack(null);
     setPlaybackTime(0);
     setDuration(0);
+    setIsFullPlayerVisible(false);
   }, [player]);
 
   // Set up event listeners on the player
@@ -197,6 +390,9 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const statusSub = player.addListener('statusChange', (status) => {
       if (status.status === 'readyToPlay') {
         setDuration(player.duration || 0);
+        try {
+          player.playbackRate = playbackSpeedRef.current;
+        } catch {}
       }
     });
 
@@ -209,8 +405,25 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (player.duration) {
         setDuration(player.duration);
       }
-      // Auto-advance to next track when track reaches end
+
+      // Auto-advance or stop at end of track
       if (player.duration > 0 && event.currentTime >= player.duration - 0.5) {
+        if (sleepTimerMinutesRef.current === -1) {
+          player.pause();
+          setIsPlaying(false);
+          setSleepTimerMinutes(null);
+          setSleepTimerRemaining(null);
+          return;
+        }
+
+        if (repeatModeRef.current === 'one') {
+          try {
+            player.currentTime = 0;
+            player.play();
+          } catch {}
+          return;
+        }
+
         nextTrack();
       }
     });
@@ -231,11 +444,24 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         playbackTime,
         duration,
         queue,
+        playbackSpeed,
+        repeatMode,
+        isShuffle,
+        sleepTimerMinutes,
+        sleepTimerRemaining,
+        isFullPlayerVisible,
         playTrack,
         togglePlayPause,
         nextTrack,
         prevTrack,
         seekTo,
+        seekBy,
+        setPlaybackSpeed,
+        toggleRepeatMode,
+        toggleShuffle,
+        setSleepTimer,
+        openFullPlayer,
+        closeFullPlayer,
         dismissPlayer,
       }}
     >
@@ -246,6 +472,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
         </View>
       )}
       {children}
+      <FullAudioPlayerModal />
     </AudioPlayerContext.Provider>
   );
 };

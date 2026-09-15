@@ -182,6 +182,32 @@ export const downloadRepository = {
     return rows.map((r) => r.playlist_id);
   },
 
+  async deleteMultiple(ids: string[]): Promise<void> {
+    if (!ids || ids.length === 0) return;
+    const db = await getDatabase();
+    const placeholders = ids.map(() => '?').join(',');
+    await db.runAsync(`DELETE FROM playlist_items WHERE download_id IN (${placeholders})`, ids);
+    await db.runAsync(`DELETE FROM downloads WHERE id IN (${placeholders})`, ids);
+  },
+
+  async addMultipleTracksToPlaylist(playlistId: string, downloadIds: string[]): Promise<void> {
+    if (!downloadIds || downloadIds.length === 0) return;
+    const db = await getDatabase();
+    const now = Date.now();
+    for (const dId of downloadIds) {
+      const id = generateId();
+      await db.runAsync(
+        'INSERT OR IGNORE INTO playlist_items (id, playlist_id, download_id, added_at) VALUES (?, ?, ?, ?)',
+        [id, playlistId, dId, now]
+      );
+    }
+  },
+
+  async renamePlaylist(playlistId: string, newName: string): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync('UPDATE playlists SET name = ? WHERE id = ?', [newName.trim(), playlistId]);
+  },
+
   async clearAll(): Promise<void> {
     const db = await getDatabase();
     await db.runAsync('DELETE FROM playlist_items');

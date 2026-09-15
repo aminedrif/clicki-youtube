@@ -56,7 +56,13 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
     prevTrack: handlePrevTrack,
     seekTo,
     dismissPlayer,
+    openFullPlayer,
   } = useAudioPlayer();
+
+  // Multi-Select States
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  const [selectedTrackIds, setSelectedTrackIds] = useState<Set<string>>(new Set());
+  const [isBatchPlaylistModalVisible, setIsBatchPlaylistModalVisible] = useState(false);
 
   // Modals
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
@@ -120,9 +126,112 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
     return filteredTracks.length > 0 ? filteredTracks : allTracks;
   };
 
+  const toggleTrackSelection = (id: string) => {
+    setSelectedTrackIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+  };
+
+  const handleSelectAll = () => {
+    const currentList = activeTab === 'detail' ? playlistDetailTracks : filteredTracks;
+    if (selectedTrackIds.size === currentList.length) {
+      setSelectedTrackIds(new Set());
+    } else {
+      setSelectedTrackIds(new Set(currentList.map((t) => t.id)));
+    }
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
+  };
+
+  const exitMultiSelect = () => {
+    setIsMultiSelectMode(false);
+    setSelectedTrackIds(new Set());
+  };
+
   const playTrack = (track: DownloadRecord) => {
+    if (isMultiSelectMode) {
+      toggleTrackSelection(track.id);
+      return;
+    }
     const queue = getActiveQueue();
     playTrackGlobal(track, queue);
+    openFullPlayer();
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedTrackIds.size === 0) return;
+    const count = selectedTrackIds.size;
+    Alert.alert(
+      'Delete Selected Tracks',
+      `Delete ${count} track${count > 1 ? 's' : ''} permanently from your device?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Delete (${count})`,
+          style: 'destructive',
+          onPress: async () => {
+            const idsToDelete = Array.from(selectedTrackIds);
+            const tracksToDelete = allTracks.filter((t) => idsToDelete.includes(t.id));
+            if (currentTrack && idsToDelete.includes(currentTrack.id)) {
+              dismissPlayer();
+            }
+            for (const t of tracksToDelete) {
+              await deleteLocalFile(t.file_path);
+              if (t.thumbnail_local_path) {
+                await deleteLocalFile(t.thumbnail_local_path);
+              }
+            }
+            await downloadRepository.deleteMultiple(idsToDelete);
+            setSelectedTrackIds(new Set());
+            setIsMultiSelectMode(false);
+            try {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch {}
+            await loadTracks();
+            if (selectedPlaylist) {
+              loadPlaylistDetail(selectedPlaylist.id);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBatchAddToPlaylist = async (playlistId: string) => {
+    if (selectedTrackIds.size === 0) return;
+    const idsToAdd = Array.from(selectedTrackIds);
+    await downloadRepository.addMultipleTracksToPlaylist(playlistId, idsToAdd);
+    setIsBatchPlaylistModalVisible(false);
+    setSelectedTrackIds(new Set());
+    setIsMultiSelectMode(false);
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {}
+    const pls = await downloadRepository.getAllPlaylists();
+    setPlaylists(pls);
+    if (selectedPlaylist?.id === playlistId) {
+      loadPlaylistDetail(playlistId);
+    }
+  };
+
+  const handleBatchShare = async () => {
+    const ids = Array.from(selectedTrackIds);
+    const tracksToShare = allTracks.filter((t) => ids.includes(t.id));
+    if (tracksToShare.length === 0) return;
+    if (tracksToShare.length === 1) {
+      await handleShare(tracksToShare[0]);
+    } else {
+      for (const t of tracksToShare) {
+        await shareFileAsync(t.file_path, true);
+      }
+    }
   };
 
   const handleSeek = (progress: number) => {
@@ -260,46 +369,74 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            if (activeTab === 'detail') {
-              setActiveTab('playlists');
-              setSelectedPlaylist(null);
-            } else {
-              navigation.goBack();
-            }
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+      {isMultiSelectMode ? (
+        <View style={styles.multiSelectHeader}>
+          <TouchableOpacity
+            style={styles.multiSelectCancelBtn}
+            onPress={exitMultiSelect}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.multiSelectCancelText}>Cancel</Text>
+          </TouchableOpacity>
 
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {activeTab === 'detail' && selectedPlaylist ? selectedPlaylist.name : 'MP3 PLAYLIST'}
+          <Text style={styles.multiSelectHeaderCount}>
+            {selectedTrackIds.size} SELECTED
           </Text>
-          <Text style={styles.headerSubtitle}>
-            {activeTab === 'detail'
-              ? `${playlistDetailTracks.length} TRACKS`
-              : activeTab === 'playlists'
-              ? `${playlists.length} PLAYLISTS`
-              : `${allTracks.length} DOWNLOADED TRACKS`}
-          </Text>
+
+          <TouchableOpacity
+            style={styles.multiSelectAllHeaderBtn}
+            onPress={handleSelectAll}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.multiSelectAllHeaderText}>
+              {selectedTrackIds.size === (activeTab === 'detail' ? playlistDetailTracks.length : filteredTracks.length) && (activeTab === 'detail' ? playlistDetailTracks.length : filteredTracks.length) > 0
+                ? 'Deselect All'
+                : 'Select All'}
+            </Text>
+          </TouchableOpacity>
         </View>
+      ) : (
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (activeTab === 'detail') {
+                setActiveTab('playlists');
+                setSelectedPlaylist(null);
+              } else {
+                navigation.goBack();
+              }
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={() => {
-            loadTracks();
-            if (selectedPlaylist) loadPlaylistDetail(selectedPlaylist.id);
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {activeTab === 'detail' && selectedPlaylist ? selectedPlaylist.name : 'MP3 PLAYLIST'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {activeTab === 'detail'
+                ? `${playlistDetailTracks.length} TRACKS`
+                : activeTab === 'playlists'
+                ? `${playlists.length} PLAYLISTS`
+                : `${allTracks.length} DOWNLOADED TRACKS`}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={() => {
+              loadTracks();
+              if (selectedPlaylist) loadPlaylistDetail(selectedPlaylist.id);
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="refresh-outline" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Spotify-Style View Selector Pills */}
       {activeTab !== 'detail' && (
@@ -348,24 +485,75 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
       {/* VIEW 1: ALL TRACKS */}
       {activeTab === 'all' && (
         <>
-          {/* Live Search Bar */}
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search tracks or artists..."
-              placeholderTextColor={colors.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              clearButtonMode="while-editing"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
+          {/* Search Bar & Multi-Select Toggle */}
+          <View style={styles.searchRowWithSelect}>
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={16} color={colors.textMuted} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search tracks or artists..."
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                clearButtonMode="while-editing"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.multiSelectToggleBtn,
+                isMultiSelectMode && styles.multiSelectToggleBtnActive,
+              ]}
+              onPress={() => {
+                if (isMultiSelectMode) {
+                  exitMultiSelect();
+                } else {
+                  setIsMultiSelectMode(true);
+                }
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={isMultiSelectMode ? 'close' : 'checkbox-outline'}
+                size={16}
+                color={isMultiSelectMode ? '#FFFFFF' : colors.accent}
+              />
+              <Text
+                style={[
+                  styles.multiSelectToggleText,
+                  isMultiSelectMode && styles.multiSelectToggleTextActive,
+                ]}
+              >
+                {isMultiSelectMode ? 'Done' : 'Select'}
+              </Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Selection status sub-header */}
+          {isMultiSelectMode && (
+            <View style={styles.multiSelectActionBar}>
+              <Text style={styles.multiSelectCountText}>
+                {selectedTrackIds.size} of {filteredTracks.length} selected
+              </Text>
+              <TouchableOpacity
+                style={styles.selectAllBtn}
+                onPress={handleSelectAll}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Text style={styles.selectAllBtnText}>
+                  {selectedTrackIds.size === filteredTracks.length && filteredTracks.length > 0
+                    ? 'Deselect All'
+                    : 'Select All'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* Track List */}
           {filteredTracks.length === 0 ? (
@@ -386,16 +574,32 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
               keyExtractor={(item) => item.id}
               contentContainerStyle={[
                 styles.listContent,
-                currentTrack && { paddingBottom: 110 },
+                (currentTrack || (isMultiSelectMode && selectedTrackIds.size > 0)) && { paddingBottom: 120 },
               ]}
               renderItem={({ item }) => {
                 const isSelected = currentTrack?.id === item.id;
+                const isChecked = selectedTrackIds.has(item.id);
                 return (
                   <TouchableOpacity
-                    style={[styles.trackRow, isSelected && styles.trackRowActive]}
+                    style={[
+                      styles.trackRow,
+                      isSelected && styles.trackRowActive,
+                      isMultiSelectMode && isChecked && styles.trackRowChecked,
+                    ]}
                     onPress={() => playTrack(item)}
                     activeOpacity={0.75}
                   >
+                    {/* Checkbox in Multi-Select Mode */}
+                    {isMultiSelectMode && (
+                      <View style={styles.checkboxWrapper}>
+                        <Ionicons
+                          name={isChecked ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={24}
+                          color={isChecked ? colors.accent : '#6B7280'}
+                        />
+                      </View>
+                    )}
+
                     {/* Thumbnail Artwork */}
                     <View style={styles.thumbWrapper}>
                       {item.thumbnail_local_path ? (
@@ -405,7 +609,7 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
                           <Ionicons name="musical-notes" size={20} color={colors.textMuted} />
                         </View>
                       )}
-                      {isSelected && isPlaying && (
+                      {isSelected && isPlaying && !isMultiSelectMode && (
                         <View style={styles.playingOverlay}>
                           <Ionicons name="volume-high" size={16} color="#FFFFFF" />
                         </View>
@@ -424,32 +628,34 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
                       </View>
                     </View>
 
-                    {/* Action Buttons: Add to Playlist, Share, Delete */}
-                    <View style={styles.trackActions}>
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => openAddToPlaylist(item)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="add-circle-outline" size={20} color={colors.textSecondary} />
-                      </TouchableOpacity>
+                    {/* Action Buttons: Add to Playlist, Share, Delete (hidden in multi-select mode) */}
+                    {!isMultiSelectMode && (
+                      <View style={styles.trackActions}>
+                        <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => openAddToPlaylist(item)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="add-circle-outline" size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => handleShare(item)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="share-social-outline" size={18} color={colors.textSecondary} />
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => handleShare(item)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="share-social-outline" size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={styles.actionBtn}
-                        onPress={() => handleDelete(item)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Ionicons name="trash-outline" size={18} color={colors.danger} />
-                      </TouchableOpacity>
-                    </View>
+                        <TouchableOpacity
+                          style={styles.actionBtn}
+                          onPress={() => handleDelete(item)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="trash-outline" size={18} color={colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               }}
@@ -618,7 +824,11 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
             <View style={[styles.progressBarFill, { width: `${progressFraction * 100}%` }]} />
           </TouchableOpacity>
 
-          <View style={styles.miniPlayerRow}>
+          <TouchableOpacity
+            style={styles.miniPlayerRow}
+            activeOpacity={0.9}
+            onPress={openFullPlayer}
+          >
             {/* Artwork thumbnail */}
             <TouchableOpacity onPress={togglePlayPause} activeOpacity={0.8} style={styles.miniArtworkWrapper}>
               {currentTrack.thumbnail_local_path ? (
@@ -658,9 +868,101 @@ export const PlaylistScreen: React.FC<PlaylistScreenProps> = ({ navigation }) =>
                 <Ionicons name="play-skip-forward" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
       )}
+
+      {/* Floating Bottom Batch Action Bar */}
+      {isMultiSelectMode && selectedTrackIds.size > 0 && (
+        <View style={styles.batchBottomBar}>
+          <TouchableOpacity
+            style={styles.batchBarBtn}
+            onPress={() => setIsBatchPlaylistModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="folder-open" size={18} color="#FFFFFF" />
+            <Text style={styles.batchBarBtnText}>
+              + Playlist ({selectedTrackIds.size})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.batchBarShareBtn}
+            onPress={handleBatchShare}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="share-social" size={18} color="#FFFFFF" />
+            <Text style={styles.batchBarShareText}>Share</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.batchBarDeleteBtn}
+            onPress={handleBatchDelete}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="trash" size={18} color="#EF4444" />
+            <Text style={styles.batchBarDeleteText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* MODAL 3: BATCH ADD TRACKS TO PLAYLIST */}
+      <Modal
+        visible={isBatchPlaylistModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsBatchPlaylistModalVisible(false)}
+      >
+        <View style={styles.modalBackdropBottom}>
+          <View style={styles.sheetCard}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>
+                Add {selectedTrackIds.size} Tracks to Playlist
+              </Text>
+              <TouchableOpacity onPress={() => setIsBatchPlaylistModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick New Playlist row */}
+            <TouchableOpacity
+              style={styles.sheetNewRow}
+              onPress={() => {
+                setIsBatchPlaylistModalVisible(false);
+                setIsCreateModalVisible(true);
+              }}
+            >
+              <Ionicons name="add-circle" size={24} color={colors.accent} />
+              <Text style={styles.sheetNewText}>+ Create New Playlist</Text>
+            </TouchableOpacity>
+
+            <ScrollView style={{ maxHeight: 280 }}>
+              {playlists.length === 0 ? (
+                <Text style={styles.sheetEmpty}>No playlists created yet. Create one above!</Text>
+              ) : (
+                playlists.map((pl) => (
+                  <TouchableOpacity
+                    key={pl.id}
+                    style={styles.batchSheetPlaylistRow}
+                    onPress={() => handleBatchAddToPlaylist(pl.id)}
+                  >
+                    <View style={styles.batchPlIcon}>
+                      <Ionicons name="folder" size={20} color={colors.accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetPlaylistName}>{pl.name}</Text>
+                      <Text style={styles.sheetPlaylistCount}>
+                        {pl.track_count} {pl.track_count === 1 ? 'track' : 'tracks'}
+                      </Text>
+                    </View>
+                    <Ionicons name="arrow-forward-circle" size={22} color={colors.accent} />
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* MODAL 1: CREATE PLAYLIST */}
       <Modal
@@ -780,6 +1082,40 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
+  multiSelectHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  multiSelectCancelBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  multiSelectCancelText: {
+    color: '#D1D5DB',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  multiSelectHeaderCount: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  multiSelectAllHeaderBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  multiSelectAllHeaderText: {
+    color: colors.accent,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   backButton: {
     padding: 4,
   },
@@ -849,12 +1185,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
+  searchRowWithSelect: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0A0E17',
-    marginHorizontal: 16,
-    marginBottom: 8,
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 12,
@@ -869,6 +1211,51 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 13,
     padding: 0,
+  },
+  multiSelectToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  multiSelectToggleBtnActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  multiSelectToggleText: {
+    color: '#D1D5DB',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  multiSelectToggleTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  multiSelectActionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    marginBottom: 4,
+  },
+  multiSelectCountText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  selectAllBtn: {
+    paddingVertical: 2,
+  },
+  selectAllBtnText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 16,
@@ -888,6 +1275,15 @@ const styles = StyleSheet.create({
   trackRowActive: {
     borderColor: colors.accent,
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
+  },
+  trackRowChecked: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  checkboxWrapper: {
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   thumbWrapper: {
     width: 48,
@@ -1278,5 +1674,93 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginVertical: 20,
+  },
+  batchBottomBar: {
+    position: 'absolute',
+    bottom: 18,
+    left: 14,
+    right: 14,
+    backgroundColor: '#12121A',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.45)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    gap: 8,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 12,
+    zIndex: 9999,
+  },
+  batchBarBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.accent,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  batchBarBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  batchBarShareBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  batchBarShareText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  batchBarDeleteBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
+  batchBarDeleteText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  batchSheetPlaylistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    marginBottom: 8,
+  },
+  batchPlIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
