@@ -13,7 +13,6 @@ import * as Haptics from 'expo-haptics';
 import { RootStackParamList } from '../navigation/types';
 import { BlackHoleVisual, BlackHoleStatus } from '../components/BlackHoleVisual';
 import { GlobalMiniPlayer } from '../components/GlobalMiniPlayer';
-import { AppInfoModal } from '../components/AppInfoModal';
 import { useClipboardDetector } from '../hooks/useClipboardDetector';
 import { useDownloadManager } from '../hooks/useDownloadManager';
 import { resolveCobaltMedia } from '../api/cobaltClient';
@@ -31,7 +30,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<'mp3' | 'mp4'>('mp3');
   const [downloadSuccessTitle, setDownloadSuccessTitle] = useState<string | null>(null);
-  const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
 
   const handleHolePress = async () => {
     // Instantly show ad popup on button click (session-limited, works for both MP3 & MP4)
@@ -112,26 +110,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Brand Header with App Info Button */}
+      {/* Top Brand Header */}
       <View style={styles.topHeader}>
-        <View style={styles.topHeaderLeftSpacer} />
-        <View style={styles.topHeaderCenter}>
-          <BlackHoleVisual size={22} showLabel={false} disabled />
-          <Text style={styles.topHeaderTitle}>CLICKI YOUTUBE</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.infoButton}
-          onPress={() => {
-            try {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            } catch {}
-            setIsInfoModalVisible(true);
-          }}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.infoButtonText}>!</Text>
-        </TouchableOpacity>
+        <BlackHoleVisual size={22} showLabel={false} disabled />
+        <Text style={styles.topHeaderTitle}>CLICKI YOUTUBE</Text>
       </View>
 
       {/* Format Selector Pill (MP3 Audio vs MP4 Video) */}
@@ -278,12 +260,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <Text style={styles.dockPlaylistText}>PLAYLIST</Text>
         </TouchableOpacity>
       </View>
-
-      {/* App Info Modal */}
-      <AppInfoModal
-        visible={isInfoModalVisible}
-        onClose={() => setIsInfoModalVisible(false)}
-      />
     </SafeAreaView>
   );
 };
@@ -296,40 +272,17 @@ const styles = StyleSheet.create({
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 8,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 4,
-  },
-  topHeaderLeftSpacer: {
-    width: 32,
-    height: 32,
-  },
-  topHeaderCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   topHeaderTitle: {
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 2.5,
-  },
-  infoButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(239, 68, 68, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infoButtonText: {
-    color: colors.accent,
-    fontSize: 15,
-    fontWeight: '900',
   },
   formatSelectorRow: {
     flexDirection: 'row',
