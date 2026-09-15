@@ -7,6 +7,7 @@ import { getDatabase } from './src/database/db';
 import { initAdMob } from './src/services/adMobService';
 import { colors } from './src/theme/colors';
 
+import * as Updates from 'expo-updates';
 import { AudioPlayerProvider } from './src/context/AudioPlayerContext';
 
 export default function App() {
@@ -19,6 +20,18 @@ export default function App() {
         await getDatabase();
         // Initialize AdMob
         initAdMob();
+
+        // Check for Over-The-Air (OTA) updates in background
+        if (!__DEV__) {
+          Updates.checkForUpdateAsync()
+            .then(async (update) => {
+              if (update.isAvailable) {
+                await Updates.fetchUpdateAsync();
+                await Updates.reloadAsync();
+              }
+            })
+            .catch(() => {});
+        }
       } catch (e) {
         console.warn('App initialization error:', e);
       } finally {
