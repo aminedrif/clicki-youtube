@@ -1,5 +1,5 @@
 export const ADMOB_PROD_UNITS = {
-  interstitial: 'ca-app-pub-4277035637966209/9253050311',
+  interstitial: 'ca-app-pub-4277035637966209/1483059864',
   banner: 'ca-app-pub-4277035637966209/9253050311',
 };
 

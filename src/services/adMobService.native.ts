@@ -3,9 +3,9 @@ import { Platform } from 'react-native';
 // Google AdMob Production & Test Ad Unit IDs
 export const ADMOB_PROD_UNITS = {
   interstitial: Platform.select({
-    ios: 'ca-app-pub-4277035637966209/9253050311',
-    android: 'ca-app-pub-4277035637966209/9253050311',
-    default: 'ca-app-pub-4277035637966209/9253050311',
+    ios: 'ca-app-pub-4277035637966209/1483059864',
+    android: 'ca-app-pub-4277035637966209/1483059864',
+    default: 'ca-app-pub-4277035637966209/1483059864',
   }),
   banner: Platform.select({
     ios: 'ca-app-pub-4277035637966209/9253050311',
