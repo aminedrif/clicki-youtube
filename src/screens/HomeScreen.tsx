@@ -114,6 +114,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <View style={styles.topHeader}>
         <BlackHoleVisual size={22} showLabel={false} disabled />
         <Text style={styles.topHeaderTitle}>CLICKI YOUTUBE</Text>
+        <View style={styles.proBadge}>
+          <Text style={styles.proBadgeText}>v1.0.1 PRO ⚡</Text>
+        </View>
       </View>
 
       {/* Format Selector Pill (MP3 Audio vs MP4 Video) */}
@@ -283,6 +286,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 2.5,
+  },
+  proBadge: {
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: '#00E5FF',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 4,
+  },
+  proBadgeText: {
+    color: '#00E5FF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   formatSelectorRow: {
     flexDirection: 'row',
