@@ -1,13 +1,47 @@
-import { Alert, Linking, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import * as Updates from 'expo-updates';
 
-const VERSION_ENDPOINT = 'https://aminedrif.github.io/clicki-youtube/version.json';
-const CURRENT_VERSION_CODE = 1;
+export const VERSION_ENDPOINT = 'https://aminedrif.github.io/clicki-youtube/version.json';
+export const CURRENT_VERSION_CODE = 1;
+export const CURRENT_VERSION_NAME = '1.0.0';
 
+export interface UpdateInfo {
+  version: string;
+  versionCode: number;
+  downloadUrl: string;
+  changelog?: string;
+  forceUpdate?: boolean;
+}
+
+type UpdateListener = (info: UpdateInfo) => void;
+const listeners: Set<UpdateListener> = new Set();
+
+export function subscribeToUpdateEvents(listener: UpdateListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notifyUpdateAvailable(info: UpdateInfo) {
+  listeners.forEach((callback) => {
+    try {
+      callback(info);
+    } catch (err) {
+      console.warn('Update listener error:', err);
+    }
+  });
+}
+
+/**
+ * Checks for updates:
+ * 1. Checks EAS OTA cloud updates if available
+ * 2. Queries the GitHub version.json endpoint for new APK releases
+ */
 export async function checkAppUpdates(): Promise<void> {
-  // 1. First attempt silent OTA update via EAS Cloud
+  // 1. First attempt silent OTA update via EAS Cloud if enabled
   try {
-    if (!__DEV__) {
+    if (!__DEV__ && Updates.isEnabled) {
       const otaUpdate = await Updates.checkForUpdateAsync();
       if (otaUpdate.isAvailable) {
         await Updates.fetchUpdateAsync();
@@ -16,39 +50,29 @@ export async function checkAppUpdates(): Promise<void> {
       }
     }
   } catch (e) {
-    // Continue to standalone version check if OTA fails or offline
+    // Silently continue to direct version endpoint
   }
 
-  // 2. Fail-safe APK version check from GitHub endpoint
+  // 2. Direct in-app update check from version.json endpoint
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
+    const timeout = setTimeout(() => controller.abort(), 6000);
 
-    const res = await fetch(VERSION_ENDPOINT, { signal: controller.signal });
+    const res = await fetch(`${VERSION_ENDPOINT}?t=${Date.now()}`, {
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache',
+      },
+    });
     clearTimeout(timeout);
 
     if (res.ok) {
-      const data = await res.json();
+      const data: UpdateInfo = await res.json();
       if (data.versionCode && data.versionCode > CURRENT_VERSION_CODE) {
-        Alert.alert(
-          '🚀 New Update Available!',
-          `Version ${data.version || 'New'} is now ready.\n\n${data.changelog || 'Performance improvements and bug fixes.'}`,
-          [
-            { text: 'Later', style: 'cancel' },
-            {
-              text: 'Update Now',
-              style: 'default',
-              onPress: () => {
-                if (data.downloadUrl) {
-                  Linking.openURL(data.downloadUrl).catch(() => {});
-                }
-              },
-            },
-          ]
-        );
+        notifyUpdateAvailable(data);
       }
     }
   } catch (e) {
-    // Silently ignore if offline
+    // Silently ignore if offline or unreachable
   }
 }

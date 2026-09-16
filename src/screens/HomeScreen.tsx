@@ -33,7 +33,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const handleHolePress = async () => {
     // Instantly show ad popup on button click (session-limited, works for both MP3 & MP4)
-    showInterstitialOnDownloadClick().catch(() => {});
+    showInterstitialOnDownloadClick().catch(() => { });
 
     if (holeStatus === 'resolving' || holeStatus === 'downloading') return;
     setErrorMessage(null);
@@ -70,7 +70,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       setHoleStatus('downloading');
 
       // Trigger session-limited AdMob popup on download click
-      showInterstitialOnDownloadClick().catch(() => {});
+      showInterstitialOnDownloadClick().catch(() => { });
 
       let savedRecord: any = null;
       try {
@@ -89,7 +89,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         setDownloadSuccessTitle(savedRecord.title);
         try {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch {}
+        } catch { }
 
         // Reset back to idle after 4 seconds
         setTimeout(() => {
@@ -127,7 +127,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             setSelectedFormat('mp3');
             try {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            } catch {}
+            } catch { }
           }}
           activeOpacity={0.8}
         >
@@ -155,7 +155,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             setSelectedFormat('mp4');
             try {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            } catch {}
+            } catch { }
           }}
           activeOpacity={0.8}
         >

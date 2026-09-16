@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "CLICKI Youtube",
-    "slug": "clicki-youtube",
+    "slug": "clicki",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -51,7 +51,8 @@
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "WAKE_LOCK",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "REQUEST_INSTALL_PACKAGES"
       ]
     },
     "plugins": [

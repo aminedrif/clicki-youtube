@@ -9,6 +9,7 @@ import { colors } from './src/theme/colors';
 
 import { checkAppUpdates } from './src/services/updateChecker';
 import { AudioPlayerProvider } from './src/context/AudioPlayerContext';
+import { UpdateModal } from './src/components/UpdateModal';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -22,7 +23,9 @@ export default function App() {
         initAdMob();
 
         // Check for updates (EAS OTA + GitHub Version Endpoint)
-        checkAppUpdates().catch(() => {});
+        setTimeout(() => {
+          checkAppUpdates().catch(() => {});
+        }, 1200);
       } catch (e) {
         console.warn('App initialization error:', e);
       } finally {
@@ -46,6 +49,7 @@ export default function App() {
       <StatusBar style="light" />
       <AudioPlayerProvider>
         <AppNavigator />
+        <UpdateModal />
       </AudioPlayerProvider>
     </SafeAreaProvider>
   );
