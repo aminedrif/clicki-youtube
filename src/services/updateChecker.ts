@@ -15,15 +15,23 @@ export interface UpdateInfo {
 
 type UpdateListener = (info: UpdateInfo) => void;
 const listeners: Set<UpdateListener> = new Set();
+let cachedUpdateInfo: UpdateInfo | null = null;
 
 export function subscribeToUpdateEvents(listener: UpdateListener): () => void {
   listeners.add(listener);
+  // If we already detected an update, immediately trigger the listener
+  if (cachedUpdateInfo) {
+    try {
+      listener(cachedUpdateInfo);
+    } catch {}
+  }
   return () => {
     listeners.delete(listener);
   };
 }
 
 function notifyUpdateAvailable(info: UpdateInfo) {
+  cachedUpdateInfo = info;
   listeners.forEach((callback) => {
     try {
       callback(info);
@@ -35,25 +43,11 @@ function notifyUpdateAvailable(info: UpdateInfo) {
 
 /**
  * Checks for updates:
- * 1. Checks EAS OTA cloud updates if available
- * 2. Queries the GitHub version.json endpoint for new APK releases
+ * 1. Queries the GitHub version.json endpoint for new APK releases
+ * 2. Attempts EAS OTA cloud updates in the background if enabled
  */
 export async function checkAppUpdates(): Promise<void> {
-  // 1. First attempt silent OTA update via EAS Cloud if enabled
-  try {
-    if (!__DEV__ && Updates.isEnabled) {
-      const otaUpdate = await Updates.checkForUpdateAsync();
-      if (otaUpdate.isAvailable) {
-        await Updates.fetchUpdateAsync();
-        await Updates.reloadAsync();
-        return;
-      }
-    }
-  } catch (e) {
-    // Silently continue to direct version endpoint
-  }
-
-  // 2. Direct in-app update check from version.json endpoint
+  // 1. Direct in-app update check from version.json endpoint
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
@@ -62,6 +56,7 @@ export async function checkAppUpdates(): Promise<void> {
       signal: controller.signal,
       headers: {
         'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
       },
     });
     clearTimeout(timeout);
@@ -70,9 +65,23 @@ export async function checkAppUpdates(): Promise<void> {
       const data: UpdateInfo = await res.json();
       if (data.versionCode && data.versionCode > CURRENT_VERSION_CODE) {
         notifyUpdateAvailable(data);
+        return;
       }
     }
   } catch (e) {
-    // Silently ignore if offline or unreachable
+    // Continue to EAS check if offline or error
+  }
+
+  // 2. EAS OTA cloud check (background)
+  try {
+    if (!__DEV__ && Updates.isEnabled) {
+      const otaUpdate = await Updates.checkForUpdateAsync();
+      if (otaUpdate.isAvailable) {
+        await Updates.fetchUpdateAsync();
+        await Updates.reloadAsync();
+      }
+    }
+  } catch (e) {
+    // Silently ignore
   }
 }
