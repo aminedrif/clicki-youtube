@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import * as Updates from 'expo-updates';
 
 export const VERSION_ENDPOINT = 'https://aminedrif.github.io/clicki-youtube/version.json';
-export const CURRENT_VERSION_CODE = 1;
-export const CURRENT_VERSION_NAME = '1.0.0';
+export const CURRENT_VERSION_CODE = 2;
+export const CURRENT_VERSION_NAME = '1.0.1';
 
 export interface UpdateInfo {
   version: string;
